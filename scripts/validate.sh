@@ -7,7 +7,7 @@
 set -euo pipefail
 
 PI_HOST="${1:-192.168.178.49}"
-PI_USER="pi"
+PI_USER="${2:-pi}"
 PASSED=0
 FAILED=0
 TOTAL=0

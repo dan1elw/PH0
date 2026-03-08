@@ -2,13 +2,15 @@
 Description=Pi-hole Ersteinrichtung (First Boot)
 After=network-online.target
 Wants=network-online.target
-# Nur beim allerersten Boot ausführen
-ConditionPathExists=/boot/firmware/secrets.env
+# Nur beim allerersten Boot ausführen (secrets.env wird nach Abschluss gelöscht)
+ConditionPathExists=|/boot/firmware/secrets.env
+ConditionPathExists=|/boot/secrets.env
 
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/first-boot.sh
 RemainAfterExit=false
+TimeoutStartSec=600
 StandardOutput=journal+console
 StandardError=journal+console
 

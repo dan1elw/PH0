@@ -1,14 +1,16 @@
 #!/bin/bash -e
-# 01-run.sh – Pi-hole und Log2RAM Installation
+# 01-run.sh – Vorbereitungen für Pi-hole und Log2RAM
 # Wird innerhalb der pi-gen chroot-Umgebung ausgeführt.
+#
+# WICHTIG: Im chroot funktionieren KEINE systemd-Befehle und
+# kein Netzwerkzugriff für Installer-Scripts. Daher werden hier
+# nur Verzeichnisse, User und Dateien vorbereitet.
+# Die eigentliche Installation von Pi-hole und Log2RAM erfolgt
+# beim First Boot auf dem realen System.
 
 # ============================================================
-# Pi-hole v6 – Unattended Installation
+# pihole User und Verzeichnis vorbereiten
 # ============================================================
-# Pi-hole v6 benötigt eine vorhandene pihole.toml für unattended Install.
-# Die Datei wird in Stage 01-configure deployed. Hier erstellen wir
-# vorab den pihole-User und das Konfigurationsverzeichnis.
-
 on_chroot << 'CHEOF'
 # pihole Gruppe und User erstellen
 if ! getent group pihole > /dev/null 2>&1; then
@@ -24,29 +26,10 @@ chown pihole:pihole /etc/pihole
 chmod 775 /etc/pihole
 CHEOF
 
-# pihole.toml wird in 01-configure/01-run.sh kopiert, damit sie
-# vor dem Installer vorhanden ist.
-
-# Pi-hole installieren (unattended)
-# HINWEIS: pihole.toml muss bereits in /etc/pihole liegen.
-# Da pi-gen Stages sequentiell abgearbeitet werden und 01-configure
-# nach 00-install-packages kommt, installieren wir Pi-hole in
-# 01-configure/01-run.sh NACH dem Kopieren der pihole.toml.
-
 # ============================================================
-# Log2RAM Installation
+# Log-Verzeichnisse vorbereiten
 # ============================================================
-on_chroot << 'CHEOF'
-# Log2RAM via GitHub Release installieren (unabhängig vom APT-Repo)
-cd /tmp
-curl -sSL https://github.com/azlux/log2ram/archive/refs/heads/master.tar.gz | tar -xz
-cd log2ram-master
-chmod +x install.sh
-
-# Install-Script ausführen (installiert Service + Config)
-./install.sh
-
-# Aufräumen
-cd /tmp
-rm -rf log2ram-master
-CHEOF
+mkdir -p "${ROOTFS_DIR}/var/log/pihole"
+mkdir -p "${ROOTFS_DIR}/var/log/watchdog"
+touch "${ROOTFS_DIR}/var/log/pihole-crashes.log"
+touch "${ROOTFS_DIR}/var/log/pihole-health.log"

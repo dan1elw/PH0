@@ -84,23 +84,23 @@ nano secrets.env  # Werte ausfüllen
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│              GitHub Repository + Actions               │
-│  pi-gen Build → .img Release Asset                    │
+│              GitHub Repository + Actions             │
+│  pi-gen Build → .img Release Asset                   │
 └──────────────────────┬───────────────────────────────┘
                        │ Flash auf SD-Karte
                        ▼
 ┌──────────────────────────────────────────────────────┐
-│         Raspberry Pi Zero W (192.168.178.49)          │
-│         Raspberry Pi OS Lite (Bookworm, armhf)        │
+│         Raspberry Pi Zero W (192.168.178.49)         │
+│         Raspberry Pi OS Lite (Bookworm, armhf)       │
 │                                                      │
-│  ┌────────────┐  ┌────────────┐  ┌────────────────┐ │
-│  │  Pi-hole   │  │  Log2RAM   │  │  Watchdog      │ │
-│  │  v6 (FTL)  │  │  /var/log  │  │  Stack         │ │
-│  │            │  │  50MB RAM  │  │                │ │
-│  │  DNS :53   │  │  1h Sync   │  │  HW-Watchdog  │ │
-│  │  HTTP :80  │  │            │  │  WLAN-Monitor  │ │
-│  │  REST API  │  │            │  │  Health-Check  │ │
-│  └────────────┘  └────────────┘  └────────────────┘ │
+│  ┌────────────┐  ┌────────────┐  ┌────────────────┐  │
+│  │  Pi-hole   │  │  Log2RAM   │  │  Watchdog      │  │
+│  │  v6 (FTL)  │  │  /var/log  │  │  Stack         │  │
+│  │            │  │  50MB RAM  │  │                │  │
+│  │  DNS :53   │  │  1h Sync   │  │  HW-Watchdog   │  │
+│  │  HTTP :80  │  │            │  │  WLAN-Monitor  │  │
+│  │  REST API  │  │            │  │  Health-Check  │  │
+│  └────────────┘  └────────────┘  └────────────────┘  │
 │                                                      │
 │  ┌────────────────────────────────────────────────┐  │
 │  │  First-Boot → secrets.env lesen → sich selbst  │  │
@@ -170,18 +170,23 @@ cp secrets.env.example secrets.env
 
 Folgende Werte müssen gesetzt werden:
 
-| Variable | Beschreibung | Beispiel |
-|---|---|---|
-| `PIHOLE_PASSWORD` | Admin-Passwort für Pi-hole Web UI | `mein-sicheres-passwort` |
-| `WIFI_SSID` | WLAN-Name | `MeinWLAN` |
-| `WIFI_PASSWORD` | WLAN-Passwort | `wlan-passwort` |
-| `SSH_PUBLIC_KEY` | Öffentlicher SSH-Schlüssel | `ssh-ed25519 AAAA...` |
-| `PI_HOSTNAME` | Hostname des Pi | `pihole` |
+| Variable | Pflicht | Beschreibung | Beispiel |
+|---|---|---|---|
+| `PI_USER` | Ja | Linux-Benutzername für SSH-Login | `pi` |
+| `PI_USER_PASSWORD` | Ja | Passwort für sudo und Console-Login | `mein-passwort` |
+| `PIHOLE_PASSWORD` | Ja | Admin-Passwort für Pi-hole Web UI | `mein-sicheres-passwort` |
+| `WIFI_SSID` | Ja | WLAN-Name | `MeinWLAN` |
+| `WIFI_PASSWORD` | Ja | WLAN-Passwort | `wlan-passwort` |
+| `SSH_PUBLIC_KEY` | Ja | Öffentlicher SSH-Schlüssel | `ssh-ed25519 AAAA...` |
+| `WIFI_COUNTRY` | Nein | WLAN-Ländercode (Standard: `DE`) | `DE` |
+| `PI_HOSTNAME` | Nein | Hostname des Pi (Standard: `pihole`) | `pihole` |
+| `PI_IP` | Nein | Statische IP (Standard: `192.168.178.49`) | `192.168.178.49` |
+| `PI_GATEWAY` | Nein | Gateway/Router (Standard: `192.168.178.1`) | `192.168.178.1` |
+| `PI_PREFIX` | Nein | Subnetz-Präfix (Standard: `24`) | `24` |
 
 ### Statische IP
 
-Die statische IP `192.168.178.49/24` ist in der pi-gen `config` vorkonfiguriert.
-Zum Ändern: `config` bearbeiten oder via `pihole.toml` anpassen.
+Die statische IP ist über `PI_IP` in `secrets.env` konfigurierbar (Standard: `192.168.178.49/24`).
 
 ## Image bauen
 

@@ -12,7 +12,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "${SCRIPT_DIR}")"
 PI_GEN_DIR="${PROJECT_DIR}/pi-gen"
 PI_GEN_REPO="https://github.com/RPi-Distro/pi-gen.git"
-PI_GEN_BRANCH="master"  # master = 32-bit (armhf) für Pi Zero W
+PI_GEN_BRANCH="bookworm"  # bookworm-Branch für Bookworm 32-bit (armhf) Images
 
 USE_DOCKER=true
 CLEAN_BUILD=false
@@ -85,11 +85,12 @@ echo "[INFO] Kopiere Konfiguration..."
 # config Datei
 cp "${PROJECT_DIR}/config" "${PI_GEN_DIR}/config"
 
-# Custom Stage verlinken
+# Custom Stage kopieren (nicht verlinken – Docker-Build kann Symlinks
+# außerhalb des Build-Kontexts nicht auflösen)
 if [ -L "${PI_GEN_DIR}/stage-pihole" ] || [ -d "${PI_GEN_DIR}/stage-pihole" ]; then
     rm -rf "${PI_GEN_DIR}/stage-pihole"
 fi
-ln -sf "${PROJECT_DIR}/stage-pihole" "${PI_GEN_DIR}/stage-pihole"
+cp -a "${PROJECT_DIR}/stage-pihole" "${PI_GEN_DIR}/stage-pihole"
 
 # Stages 3-5 überspringen (wir bauen nur Lite + unsere Stage)
 for stage in stage3 stage4 stage5; do

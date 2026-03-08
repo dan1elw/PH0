@@ -8,7 +8,8 @@ IMG_NAME=pihole-zerow
 RELEASE=bookworm
 
 # Zielarchitektur: armhf für Pi Zero W (ARMv6)
-# WICHTIG: Nur der master-Branch von pi-gen unterstützt 32-bit Builds.
+# Der bookworm-Branch von pi-gen unterstützt 32-bit Builds.
+# (master ist seit Aug 2025 auf Trixie umgestiegen)
 TARGET_HOSTNAME=pihole
 
 # Erster Benutzer – Passwort wird beim First Boot via secrets.env gesetzt

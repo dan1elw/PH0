@@ -47,8 +47,9 @@ jobs:
           # stage0-2 = Raspberry Pi OS Lite, dann unsere Stage
           stage-list: stage0 stage1 stage2 ./stage-pihole
 
-          # 32-bit für Pi Zero W (master = armhf)
-          pi-gen-version: master
+          # Bookworm-Branch für 32-bit armhf (Pi Zero W)
+          # master ist jetzt Trixie – wir brauchen explizit bookworm
+          pi-gen-version: bookworm
 
           # Locale und Zeitzone
           locale: de_DE.UTF-8
@@ -70,9 +71,6 @@ jobs:
 
           # Nur die letzte Stage als Image exportieren
           export-last-stage-only: true
-
-          # qcow2 für schnelleren Build und weniger Speicherverbrauch
-          use-qcow2: 1
 
           # Verbose für Debugging
           verbose-output: true

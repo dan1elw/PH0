@@ -4,8 +4,9 @@
 #   - Push eines Tags (v*) → Build + Release
 #   - Manueller Trigger (workflow_dispatch)
 #
-# Verwendet: usimd/pi-gen-action@v1
-# Dokumentation: https://github.com/usimd/pi-gen-action
+# Baut pi-gen NATIV auf dem Runner (nicht via usimd/pi-gen-action),
+# da der bookworm-Branch ein i386-Docker-Image verwendet, das auf
+# amd64-Runnern nicht funktioniert.
 
 name: Build Pi-hole Image
 
@@ -20,84 +21,93 @@ on:
         required: false
         default: 'pihole-zerow'
 
-# Permissions für Release-Erstellung
 permissions:
   contents: write
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # QEMU für ARM-Emulation registrieren (benötigt für 32-bit armhf Build)
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Build Pi-hole Image
-        uses: usimd/pi-gen-action@v1
-        id: build
-        with:
-          # Image-Konfiguration
-          image-name: ${{ github.event.inputs.image_name || 'pihole-zerow' }}
-          release: bookworm
-          compression: xz
-          compression-level: 6
-
-          # Custom Stage einbinden
-          # stage0-2 = Raspberry Pi OS Lite, dann unsere Stage
-          stage-list: stage0 stage1 stage2 ./stage-pihole
-
-          # Bookworm-Branch für 32-bit armhf (Pi Zero W)
-          # master ist jetzt Trixie – wir brauchen explizit bookworm
-          pi-gen-version: bookworm
-
-          # Locale und Zeitzone
-          locale: de_DE.UTF-8
-          hostname: pihole
-          keyboard-keymap: de
-          keyboard-layout: German
-          timezone: Europe/Berlin
-
-          # SSH aktivieren (Key wird beim First Boot gesetzt)
-          enable-ssh: 1
-
-          # Benutzer – Name bleibt 'pi', wird nicht umbenannt beim First Boot
-          username: pi
-          password: ''
-          disable-first-boot-user-rename: 1
-
-          # Disk-Space auf Runner vergrößern (pi-gen braucht viel Platz)
-          increase-runner-disk-size: true
-
-          # Nur die letzte Stage als Image exportieren
-          export-last-stage-only: true
-
-          # Verbose für Debugging
-          verbose-output: true
-
-      - name: List build output
+      - name: Free disk space
         run: |
-          echo "Image path: ${{ steps.build.outputs.image-path }}"
-          ls -lh "${{ steps.build.outputs.image-path }}" 2>/dev/null || echo "Image nicht gefunden!"
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          sudo apt-get clean
+          df -h /
+
+      - name: Install pi-gen dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y coreutils quilt parted qemu-user-static \
+            debootstrap zerofree zip dosfstools libarchive-tools libcap2-bin \
+            grep rsync xz-utils file git curl bc gpg pigz xxd arch-test \
+            binfmt-support kmod
+
+      - name: Set up QEMU binfmt
+        run: |
+          docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+          ls /proc/sys/fs/binfmt_misc/qemu-arm || echo "WARN: qemu-arm not registered"
+
+      - name: Clone pi-gen (bookworm branch)
+        run: |
+          git clone --depth 1 --branch bookworm \
+            https://github.com/RPi-Distro/pi-gen.git pi-gen-build
+
+      - name: Configure pi-gen
+        run: |
+          # config Datei kopieren
+          cp config pi-gen-build/config
+
+          # Custom Stage kopieren
+          cp -a stage-pihole pi-gen-build/stage-pihole
+
+          # Stages 3-5 überspringen
+          touch pi-gen-build/stage3/SKIP pi-gen-build/stage4/SKIP pi-gen-build/stage5/SKIP
+          touch pi-gen-build/stage4/SKIP_IMAGES pi-gen-build/stage5/SKIP_IMAGES
+
+      - name: Build image
+        run: |
+          cd pi-gen-build
+          # Nativer Build (kein Docker – der i386 Container funktioniert nicht auf amd64)
+          sudo ./build.sh
+        env:
+          CONTINUE: 0
+          PRESERVE_CONTAINER: 0
+
+      - name: Find built image
+        id: find_image
+        run: |
+          IMAGE_PATH=$(ls -t pi-gen-build/deploy/*.img.xz 2>/dev/null | head -1)
+          if [ -z "${IMAGE_PATH}" ]; then
+            IMAGE_PATH=$(ls -t pi-gen-build/deploy/*.img 2>/dev/null | head -1)
+          fi
+          if [ -z "${IMAGE_PATH}" ]; then
+            echo "Kein Image gefunden!"
+            ls -la pi-gen-build/deploy/ || true
+            exit 1
+          fi
+          echo "image_path=${IMAGE_PATH}" >> "$GITHUB_OUTPUT"
+          echo "Image gefunden: ${IMAGE_PATH}"
+          ls -lh "${IMAGE_PATH}"
 
       # Bei Tag-Push: Release erstellen
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ steps.build.outputs.image-path }}
+          files: ${{ steps.find_image.outputs.image_path }}
           generate_release_notes: true
           body: |
             ## Pi-hole Image Release ${{ github.ref_name }}
 
             ### Enthaltene Komponenten
             - Raspberry Pi OS Lite (Bookworm, armhf)
-            - Pi-hole v6 (DNS + Ad-Blocking)
-            - Log2RAM (SD-Karten-Schutz)
+            - Pi-hole v6 (DNS + Ad-Blocking) – wird beim First Boot installiert
+            - Log2RAM (SD-Karten-Schutz) – wird beim First Boot installiert
             - Hardware-Watchdog + WLAN-Monitor + Health-Check
             - nftables Firewall
             - SSH (Key-Only)
@@ -106,7 +116,7 @@ jobs:
             1. Image herunterladen und entpacken
             2. `secrets.env` erstellen (siehe `secrets.env.example`)
             3. Image auf SD-Karte flashen: `./scripts/flash.sh /dev/sdX`
-            4. Pi booten – First-Boot konfiguriert alles automatisch
+            4. Pi booten – First-Boot konfiguriert und installiert alles automatisch (5-10 Min)
 
             ### Zielgerät
             Raspberry Pi Zero W (ARMv6, 512 MB RAM)
@@ -119,5 +129,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: pihole-image
-          path: ${{ steps.build.outputs.image-path }}
+          path: ${{ steps.find_image.outputs.image_path }}
           retention-days: 7

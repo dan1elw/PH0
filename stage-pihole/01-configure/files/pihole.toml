@@ -1,0 +1,64 @@
+# Pi-hole v6 Konfiguration
+# Dokumentation: https://docs.pi-hole.net/
+#
+# Diese Datei wird VOR dem Pi-hole Installer deployed.
+# Werte die beim First Boot überschrieben werden:
+#   - webserver.api.password (via secrets.env)
+#
+# HINWEIS: Dies ist eine Minimalkonfiguration.
+# Pi-hole FTL ergänzt fehlende Werte automatisch mit Defaults.
+
+[dns]
+  # Upstream DNS Server (Cloudflare + Google als Fallback)
+  upstreams = ["1.1.1.1", "8.8.8.8"]
+
+  # Interface auf dem Pi-hole lauscht
+  # "all" = alle Interfaces (benötigt für Netzwerk-DNS)
+  listeningMode = "all"
+
+  # DNSSEC aktivieren
+  dnssec = true
+
+  # Conditional Forwarding (für lokale Hostnamen via Router)
+  # Anpassen falls der Router nicht 192.168.178.1 ist
+  [dns.revServer]
+    active = true
+    cidr = "192.168.178.0/24"
+    target = "192.168.178.1"
+    domain = "fritz.box"
+
+[webserver]
+  port = "80o"
+
+  [webserver.api]
+    # Passwort wird beim First Boot via secrets.env gesetzt
+    # Leerer String = kein Passwort (wird überschrieben)
+    password = ""
+
+    # REST API aktivieren
+    prettyJSON = true
+
+    # API für alle Origins erlauben (lokales Netzwerk)
+    cors = "*"
+
+[misc]
+  # Privacy Level: 0=alles anzeigen, 1=Domains verstecken,
+  # 2=Domains+Clients, 3=anonym, 4=deaktiviert
+  privacylevel = 0
+
+  # Temperatur in Celsius
+  tempunit = "C"
+
+[files]
+  # Query-Log Konfiguration
+  [files.log]
+    # Log-Datei (wird durch Log2RAM ins RAM geschrieben)
+    file = "/var/log/pihole/pihole.log"
+
+[database]
+  # Query-Datenbank – Retention auf 1 Tag setzen (RAM-Budget schonen)
+  maxDBDays = 1
+
+[dhcp]
+  # DHCP deaktiviert – wird vom Router gehandhabt
+  active = false

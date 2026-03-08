@@ -47,7 +47,7 @@ log_info "secrets.env gefunden: ${SECRETS_FILE}"
 source "${SECRETS_FILE}"
 
 # Pflichtfelder prüfen
-for var in PIHOLE_PASSWORD WIFI_SSID WIFI_PASSWORD SSH_PUBLIC_KEY; do
+for var in PI_USER PI_USER_PASSWORD PIHOLE_PASSWORD WIFI_SSID WIFI_PASSWORD SSH_PUBLIC_KEY; do
     if [ -z "${!var:-}" ]; then
         log_err "Pflichtfeld ${var} ist nicht gesetzt in secrets.env!"
         exit 1
@@ -56,6 +56,9 @@ done
 
 WIFI_COUNTRY="${WIFI_COUNTRY:-DE}"
 PI_HOSTNAME="${PI_HOSTNAME:-pihole}"
+PI_IP="${PI_IP:-192.168.178.49}"
+PI_GATEWAY="${PI_GATEWAY:-192.168.178.1}"
+PI_PREFIX="${PI_PREFIX:-24}"
 
 # ============================================================
 # 1. Hostname setzen
@@ -65,7 +68,13 @@ hostnamectl set-hostname "${PI_HOSTNAME}"
 sed -i "s/127.0.1.1.*/127.0.1.1\t${PI_HOSTNAME}/" /etc/hosts
 
 # ============================================================
-# 2. WiFi konfigurieren
+# 2. Benutzer-Passwort setzen
+# ============================================================
+log_info "Setze Passwort für Benutzer: ${PI_USER}"
+echo "${PI_USER}:${PI_USER_PASSWORD}" | chpasswd
+
+# ============================================================
+# 3. WiFi konfigurieren
 # ============================================================
 log_info "Konfiguriere WiFi: ${WIFI_SSID}"
 
@@ -78,8 +87,8 @@ nmcli device wifi connect "${WIFI_SSID}" \
 # Statische IP setzen
 nmcli connection modify "pihole-wifi" \
     ipv4.method manual \
-    ipv4.addresses "192.168.178.49/24" \
-    ipv4.gateway "192.168.178.1" \
+    ipv4.addresses "${PI_IP}/${PI_PREFIX}" \
+    ipv4.gateway "${PI_GATEWAY}" \
     ipv4.dns "127.0.0.1" \
     wifi.cloned-mac-address stable \
     connection.autoconnect yes
@@ -91,38 +100,38 @@ if [ -f /etc/default/crda ]; then
 fi
 
 # ============================================================
-# 3. SSH-Key deployen
+# 4. SSH-Key deployen
 # ============================================================
-log_info "Deploye SSH Public Key"
-USER_HOME="/home/pi"
+log_info "Deploye SSH Public Key für Benutzer: ${PI_USER}"
+USER_HOME="/home/${PI_USER}"
 SSH_DIR="${USER_HOME}/.ssh"
 
 mkdir -p "${SSH_DIR}"
 echo "${SSH_PUBLIC_KEY}" > "${SSH_DIR}/authorized_keys"
 chmod 700 "${SSH_DIR}"
 chmod 600 "${SSH_DIR}/authorized_keys"
-chown -R pi:pi "${SSH_DIR}"
+chown -R "${PI_USER}:${PI_USER}" "${SSH_DIR}"
 
 # ============================================================
-# 4. Pi-hole Admin-Passwort setzen
+# 5. Pi-hole Admin-Passwort setzen
 # ============================================================
 log_info "Setze Pi-hole Admin-Passwort"
 pihole setpassword "${PIHOLE_PASSWORD}"
 
 # ============================================================
-# 5. Aufräumen
+# 6. Aufräumen
 # ============================================================
 log_info "Lösche secrets.env von der Boot-Partition"
 shred -u "${SECRETS_FILE}" 2>/dev/null || rm -f "${SECRETS_FILE}"
 
 # ============================================================
-# 6. First-Boot-Service deaktivieren
+# 7. First-Boot-Service deaktivieren
 # ============================================================
 log_info "Deaktiviere First-Boot-Service"
 systemctl disable first-boot.service
 
 # ============================================================
-# 7. Neustart
+# 8. Neustart
 # ============================================================
 log_info "Ersteinrichtung abgeschlossen. Starte neu..."
 sleep 3

@@ -1,0 +1,32 @@
+# pi-gen Konfiguration für Pi-hole Image
+# Dokumentation: https://github.com/RPi-Distro/pi-gen
+
+# Image-Name (wird Teil des Dateinamens)
+IMG_NAME=pihole-zerow
+
+# Raspberry Pi OS Release (Bookworm = Debian 12)
+RELEASE=bookworm
+
+# Zielarchitektur: armhf für Pi Zero W (ARMv6)
+# Der bookworm-Branch von pi-gen unterstützt 32-bit Builds.
+# (master ist seit Aug 2025 auf Trixie umgestiegen)
+TARGET_HOSTNAME=pihole
+
+# Erster Benutzer – Passwort wird beim First Boot via secrets.env gesetzt
+FIRST_USER_NAME=pi
+FIRST_USER_PASS=""
+
+# Locale und Tastatur
+LOCALE_DEFAULT=de_DE.UTF-8
+KEYBOARD_KEYMAP=de
+KEYBOARD_LAYOUT="German"
+TIMEZONE_DEFAULT=Europe/Berlin
+
+# SSH aktivieren
+ENABLE_SSH=1
+
+# Nur Stages 0-2 bauen (= Lite Image), dann unsere Custom Stage
+STAGE_LIST="stage0 stage1 stage2 stage-pihole"
+
+# Keine Desktop-Stages
+DEPLOY_COMPRESSION=xz

@@ -1,0 +1,10 @@
+[Unit]
+Description=Pi-hole Gesundheitsprüfung
+After=pihole-FTL.service
+Wants=pihole-FTL.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/health-check.sh
+StandardOutput=journal
+StandardError=journal

@@ -1,0 +1,15 @@
+[Unit]
+Description=WLAN-Verbindungsüberwachung und Auto-Reconnect
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/wlan-monitor.sh
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

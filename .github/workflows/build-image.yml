@@ -1,0 +1,119 @@
+# GitHub Actions Workflow: Pi-hole Image Build
+#
+# Trigger:
+#   - Push eines Tags (v*) → Build + Release
+#   - Manueller Trigger (workflow_dispatch)
+#
+# Verwendet: usimd/pi-gen-action@v1
+# Dokumentation: https://github.com/usimd/pi-gen-action
+
+name: Build Pi-hole Image
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      image_name:
+        description: 'Image-Name (optional)'
+        required: false
+        default: 'pihole-zerow'
+
+# Permissions für Release-Erstellung
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Build Pi-hole Image
+        uses: usimd/pi-gen-action@v1
+        id: build
+        with:
+          # Image-Konfiguration
+          image-name: ${{ github.event.inputs.image_name || 'pihole-zerow' }}
+          release: bookworm
+          compression: xz
+          compression-level: 6
+
+          # Custom Stage einbinden
+          # stage0-2 = Raspberry Pi OS Lite, dann unsere Stage
+          stage-list: stage0 stage1 stage2 ./stage-pihole
+
+          # Bookworm-Branch für 32-bit armhf (Pi Zero W)
+          # master ist jetzt Trixie – wir brauchen explizit bookworm
+          pi-gen-version: bookworm
+
+          # Locale und Zeitzone
+          locale: de_DE.UTF-8
+          hostname: pihole
+          keyboard-keymap: de
+          keyboard-layout: German
+          timezone: Europe/Berlin
+
+          # SSH aktivieren (Key wird beim First Boot gesetzt)
+          enable-ssh: 1
+
+          # Benutzer – Name bleibt 'pi', wird nicht umbenannt beim First Boot
+          username: pi
+          password: ''
+          disable-first-boot-user-rename: 1
+
+          # Disk-Space auf Runner vergrößern (pi-gen braucht viel Platz)
+          increase-runner-disk-size: true
+
+          # Nur die letzte Stage als Image exportieren
+          export-last-stage-only: true
+
+          # Verbose für Debugging
+          verbose-output: true
+
+      - name: List build output
+        run: |
+          echo "Image path: ${{ steps.build.outputs.image-path }}"
+          ls -lh "${{ steps.build.outputs.image-path }}" 2>/dev/null || echo "Image nicht gefunden!"
+
+      # Bei Tag-Push: Release erstellen
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.build.outputs.image-path }}
+          generate_release_notes: true
+          body: |
+            ## Pi-hole Image Release ${{ github.ref_name }}
+
+            ### Enthaltene Komponenten
+            - Raspberry Pi OS Lite (Bookworm, armhf)
+            - Pi-hole v6 (DNS + Ad-Blocking)
+            - Log2RAM (SD-Karten-Schutz)
+            - Hardware-Watchdog + WLAN-Monitor + Health-Check
+            - nftables Firewall
+            - SSH (Key-Only)
+
+            ### Verwendung
+            1. Image herunterladen und entpacken
+            2. `secrets.env` erstellen (siehe `secrets.env.example`)
+            3. Image auf SD-Karte flashen: `./scripts/flash.sh /dev/sdX`
+            4. Pi booten – First-Boot konfiguriert alles automatisch
+
+            ### Zielgerät
+            Raspberry Pi Zero W (ARMv6, 512 MB RAM)
+          draft: false
+          prerelease: false
+
+      # Bei manuellem Trigger: als Artifact hochladen
+      - name: Upload as Artifact
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: pihole-image
+          path: ${{ steps.build.outputs.image-path }}
+          retention-days: 7

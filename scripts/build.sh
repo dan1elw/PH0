@@ -154,6 +154,18 @@ show_step $(( CURRENT_STEP + 1 )) "pi-gen Build starten (${BUILD_MODE}) – das 
 
 BUILD_EXIT=0
 if [ "${USE_DOCKER}" = true ]; then
+    # Stale pigen_work container from a previous failed build would cause
+    # losetup to fail with "Device or resource busy" inside the new container.
+    # Remove it before starting so build-docker.sh creates a fresh container.
+    DOCKER_CMD="docker"
+    if ! docker ps >/dev/null 2>&1 || docker info 2>/dev/null | grep -q rootless; then
+        DOCKER_CMD="sudo docker"
+    fi
+    if ${DOCKER_CMD} ps -a --filter name=pigen_work -q | grep -q .; then
+        echo "Entferne alten pigen_work Container..."
+        ${DOCKER_CMD} rm -v pigen_work >/dev/null
+    fi
+
     # Systemd-resolved (127.0.0.53) ist im Docker-Container nicht erreichbar.
     # Google DNS als Fallback übergeben.
     export PIGEN_DOCKER_OPTS="${PIGEN_DOCKER_OPTS:-} --dns 8.8.8.8 --dns 8.8.4.4"

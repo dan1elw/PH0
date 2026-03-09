@@ -87,13 +87,22 @@ nmcli device wifi connect "${WIFI_SSID}" \
 
 # Warten bis Verbindung steht
 log_info "Warte auf Netzwerkverbindung..."
+WIFI_CONNECTED=false
 for i in $(seq 1 30); do
     if nmcli -t -f STATE general status | grep -q "connected"; then
         log_info "Netzwerk verbunden nach ${i} Sekunden."
+        WIFI_CONNECTED=true
         break
     fi
     sleep 1
 done
+
+if [ "${WIFI_CONNECTED}" = false ]; then
+    log_err "WLAN-Verbindung fehlgeschlagen! SSID: ${WIFI_SSID}"
+    log_err "Prüfe WIFI_SSID und WIFI_PASSWORD in secrets.env."
+    log_err "nmcli status: $(nmcli -t -f STATE general status 2>&1 || true)"
+    exit 1
+fi
 
 # Statische IP setzen
 nmcli connection modify "pihole-wifi" \

@@ -13,11 +13,11 @@ set -uo pipefail
 
 trap 'echo ""; echo "Abbruch."; exit 130' INT TERM
 
-# Standardwerte aus secrets.env laden (falls keine Argumente übergeben)
+# Standardwerte aus secrets.env laden (immer, falls vorhanden)
 SECRETS_ENV="$(dirname "$0")/../secrets.env"
 _DEFAULT_HOST="192.168.178.49"
 _DEFAULT_USER="pi"
-if [ $# -eq 0 ] && [ -f "${SECRETS_ENV}" ]; then
+if [ -f "${SECRETS_ENV}" ]; then
     # shellcheck source=/dev/null
     source "${SECRETS_ENV}"
     _DEFAULT_HOST="${PI_IP:-${_DEFAULT_HOST}}"

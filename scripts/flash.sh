@@ -2,7 +2,7 @@
 # flash.sh – Image auf SD-Karte schreiben und secrets.env deployen
 #
 # Verwendung:
-#   ./scripts/flash.sh /dev/sdX
+#   ./scripts/flash.sh /dev/sdX       (ganzes Laufwerk)
 #   ./scripts/flash.sh /dev/mmcblk0
 
 set -euo pipefail
@@ -16,8 +16,10 @@ DEPLOY_DIR="${PROJECT_DIR}/deploy"
 # ============================================================
 if [ $# -lt 1 ]; then
     echo "Verwendung: $0 <device>"
-    echo "  Beispiel: $0 /dev/sdX"
+    echo "  Beispiel: $0 /dev/sdc       (ganzes Laufwerk, NICHT /dev/sdc1!)"
     echo "  Beispiel: $0 /dev/mmcblk0"
+    echo ""
+    echo "WICHTIG: Immer das ganze Laufwerk angeben, nicht eine Partition!"
     echo ""
     echo "Verfügbare Geräte:"
     lsblk -d -o NAME,SIZE,TYPE,MODEL | grep disk || true
@@ -34,6 +36,28 @@ if [ ! -b "${DEVICE}" ]; then
     exit 1
 fi
 
+# Prüfe ob eine Partition statt des ganzen Laufwerks angegeben wurde
+DEVICE_TYPE=$(lsblk -no TYPE "${DEVICE}" 2>/dev/null || echo "unknown")
+if [ "${DEVICE_TYPE}" = "part" ]; then
+    PARENT_DISK=$(lsblk -no PKNAME "${DEVICE}" 2>/dev/null || echo "")
+    if [ -n "${PARENT_DISK}" ]; then
+        echo ""
+        echo "[WARNUNG] Du hast eine Partition angegeben: ${DEVICE}"
+        echo "          Das Image muss auf das ganze Laufwerk geschrieben werden: /dev/${PARENT_DISK}"
+        echo ""
+        read -rp "  /dev/${PARENT_DISK} verwenden? (ja/NEIN): " use_parent
+        if [ "${use_parent}" = "ja" ]; then
+            DEVICE="/dev/${PARENT_DISK}"
+        else
+            echo "Abgebrochen."
+            exit 1
+        fi
+    else
+        echo "[FEHLER] ${DEVICE} ist eine Partition. Bitte das ganze Laufwerk angeben (z.B. /dev/sdc)."
+        exit 1
+    fi
+fi
+
 # Prüfe ob es eine System-Disk ist
 ROOT_DISK=$(lsblk -no PKNAME "$(findmnt -n -o SOURCE /)" 2>/dev/null || echo "")
 if [ -n "${ROOT_DISK}" ] && [ "/dev/${ROOT_DISK}" = "${DEVICE}" ]; then
@@ -46,12 +70,10 @@ fi
 # ============================================================
 IMAGE_FILE=""
 
-# Zuerst unkomprimierte .img suchen
 if ls "${DEPLOY_DIR}"/*.img 1>/dev/null 2>&1; then
     IMAGE_FILE=$(ls -t "${DEPLOY_DIR}"/*.img 2>/dev/null | head -1)
 fi
 
-# Falls kein .img: komprimierte Version suchen und entpacken
 if [ -z "${IMAGE_FILE}" ]; then
     COMPRESSED=""
     if ls "${DEPLOY_DIR}"/*.img.xz 1>/dev/null 2>&1; then
@@ -63,12 +85,25 @@ if [ -z "${IMAGE_FILE}" ]; then
     fi
 
     if [ -n "${COMPRESSED}" ]; then
-        echo "[INFO] Entpacke ${COMPRESSED}..."
-        case "${COMPRESSED}" in
-            *.xz)  xz -dkf "${COMPRESSED}"; IMAGE_FILE="${COMPRESSED%.xz}" ;;
-            *.gz)  gzip -dkf "${COMPRESSED}"; IMAGE_FILE="${COMPRESSED%.gz}" ;;
-            *.zip) unzip -o "${COMPRESSED}" -d "${DEPLOY_DIR}"; IMAGE_FILE=$(ls -t "${DEPLOY_DIR}"/*.img | head -1) ;;
-        esac
+        echo ""
+        COMP_SIZE=$(stat --printf="%s" "${COMPRESSED}")
+
+        if command -v pv > /dev/null 2>&1; then
+            echo "[INFO] Entpacke $(basename "${COMPRESSED}")..."
+            case "${COMPRESSED}" in
+                *.xz)  pv -N "  Entpacken" -s "${COMP_SIZE}" "${COMPRESSED}" | xz -d > "${COMPRESSED%.xz}"; IMAGE_FILE="${COMPRESSED%.xz}" ;;
+                *.gz)  pv -N "  Entpacken" -s "${COMP_SIZE}" "${COMPRESSED}" | gzip -d > "${COMPRESSED%.gz}"; IMAGE_FILE="${COMPRESSED%.gz}" ;;
+                *.zip) unzip -o "${COMPRESSED}" -d "${DEPLOY_DIR}"; IMAGE_FILE=$(ls -t "${DEPLOY_DIR}"/*.img | head -1) ;;
+            esac
+        else
+            echo "[INFO] Entpacke $(basename "${COMPRESSED}") (installiere 'pv' für Fortschrittsanzeige)..."
+            case "${COMPRESSED}" in
+                *.xz)  xz -dkf "${COMPRESSED}"; IMAGE_FILE="${COMPRESSED%.xz}" ;;
+                *.gz)  gzip -dkf "${COMPRESSED}"; IMAGE_FILE="${COMPRESSED%.gz}" ;;
+                *.zip) unzip -o "${COMPRESSED}" -d "${DEPLOY_DIR}"; IMAGE_FILE=$(ls -t "${DEPLOY_DIR}"/*.img | head -1) ;;
+            esac
+        fi
+        echo ""
     fi
 fi
 
@@ -88,20 +123,22 @@ if [ ! -f "${SECRETS_FILE}" ]; then
     exit 1
 fi
 
-# IP aus secrets.env lesen für die Abschlussmeldung
 PI_IP=$(grep -E "^PI_IP=" "${SECRETS_FILE}" 2>/dev/null | cut -d'=' -f2 || echo "192.168.178.49")
 PI_IP="${PI_IP:-192.168.178.49}"
 
 # ============================================================
 # Bestätigung
 # ============================================================
+IMAGE_SIZE_BYTES=$(stat --printf="%s" "${IMAGE_FILE}")
+IMAGE_SIZE_HUMAN=$(du -h "${IMAGE_FILE}" | awk '{print $1}')
+
 echo ""
 echo "=========================================="
 echo " ACHTUNG: SD-Karte wird überschrieben!"
 echo "=========================================="
 echo ""
 echo " Image:   $(basename "${IMAGE_FILE}")"
-echo " Größe:   $(du -h "${IMAGE_FILE}" | awk '{print $1}')"
+echo " Größe:   ${IMAGE_SIZE_HUMAN}"
 echo " Ziel:    ${DEVICE}"
 echo " Device:  $(lsblk -d -o NAME,SIZE,MODEL "${DEVICE}" 2>/dev/null | tail -1)"
 echo ""
@@ -117,19 +154,24 @@ fi
 # ============================================================
 echo ""
 echo "[INFO] Unmounte Partitionen auf ${DEVICE}..."
-# Glob ohne Quotes damit die Shell expandiert
-for part in "${DEVICE}"?*; do
-    sudo umount "${part}" 2>/dev/null || true
+for part in "${DEVICE}"?* "${DEVICE}p"?*; do
+    [ -b "${part}" ] 2>/dev/null && sudo umount "${part}" 2>/dev/null || true
 done
 
 echo "[INFO] Schreibe Image auf ${DEVICE}..."
-echo "       Das kann einige Minuten dauern..."
-sudo dd if="${IMAGE_FILE}" of="${DEVICE}" bs=4M status=progress conv=fsync
+echo ""
 
+if command -v pv > /dev/null 2>&1; then
+    pv -N "  Schreiben" -s "${IMAGE_SIZE_BYTES}" "${IMAGE_FILE}" | sudo dd of="${DEVICE}" bs=4M conv=fsync 2>/dev/null
+else
+    echo "       (installiere 'pv' für Fortschrittsanzeige: sudo apt install pv)"
+    sudo dd if="${IMAGE_FILE}" of="${DEVICE}" bs=4M status=progress conv=fsync
+fi
+
+echo ""
 echo "[INFO] Synchronisiere..."
 sync
 
-# Kernel über neue Partitionstabelle informieren
 sudo partprobe "${DEVICE}" 2>/dev/null || true
 sleep 2
 
@@ -138,24 +180,24 @@ sleep 2
 # ============================================================
 echo "[INFO] Mounte Boot-Partition..."
 
-# Partition-Name bestimmen (sdX1 vs mmcblk0p1 vs nvme0n1p1)
 if [[ "${DEVICE}" == *"mmcblk"* ]] || [[ "${DEVICE}" == *"nvme"* ]]; then
     BOOT_PARTITION="${DEVICE}p1"
 else
     BOOT_PARTITION="${DEVICE}1"
 fi
 
-# Warte bis die Partition verfügbar ist
 for i in $(seq 1 10); do
     if [ -b "${BOOT_PARTITION}" ]; then
         break
     fi
+    echo "  Warte auf ${BOOT_PARTITION}... (${i}/10)"
     sleep 1
 done
 
 if [ ! -b "${BOOT_PARTITION}" ]; then
     echo "[FEHLER] Boot-Partition ${BOOT_PARTITION} nicht gefunden!"
-    echo "         Prüfe ob das Image korrekt geschrieben wurde."
+    echo "         Verfügbare Partitionen:"
+    lsblk "${DEVICE}" 2>/dev/null || true
     exit 1
 fi
 
@@ -166,9 +208,10 @@ echo "[INFO] Kopiere secrets.env auf Boot-Partition..."
 sudo cp "${SECRETS_FILE}" "${MOUNT_POINT}/secrets.env"
 sudo chmod 600 "${MOUNT_POINT}/secrets.env"
 
-# Prüfe ob die Datei tatsächlich angekommen ist
-if [ ! -f "${MOUNT_POINT}/secrets.env" ]; then
-    echo "[FEHLER] secrets.env konnte nicht auf die Boot-Partition kopiert werden!"
+if sudo test -f "${MOUNT_POINT}/secrets.env"; then
+    echo "[OK]   secrets.env erfolgreich kopiert."
+else
+    echo "[FEHLER] secrets.env konnte nicht kopiert werden!"
     sudo umount "${MOUNT_POINT}"
     rmdir "${MOUNT_POINT}"
     exit 1

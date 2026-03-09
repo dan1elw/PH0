@@ -41,6 +41,45 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# ============================================================
+# Fortschritts-Tracking
+# ============================================================
+BUILD_START=$(date +%s)
+CURRENT_STEP=0
+TOTAL_STEPS=4   # wird auf 5 erhöht wenn --clean
+
+[ "${CLEAN_BUILD}" = true ] && TOTAL_STEPS=5
+
+show_step() {
+    local step="$1"
+    local label="$2"
+    CURRENT_STEP="${step}"
+
+    local pct=$(( step * 100 / TOTAL_STEPS ))
+    local filled=$(( step * 24 / TOTAL_STEPS ))
+    local empty=$(( 24 - filled ))
+    local bar=""
+    for ((i=0; i<filled; i++)); do bar+="█"; done
+    for ((i=0; i<empty; i++)); do bar+="░"; done
+
+    local elapsed=$(( $(date +%s) - BUILD_START ))
+    local eta_str=""
+    if [ "${step}" -gt 0 ] && [ "${pct}" -lt 100 ]; then
+        local total_est=$(( elapsed * TOTAL_STEPS / step ))
+        local remaining=$(( total_est - elapsed ))
+        if [ "${remaining}" -gt 0 ]; then
+            local rem_m=$(( remaining / 60 ))
+            local rem_s=$(( remaining % 60 ))
+            eta_str="  |  ETA: ${rem_m}m ${rem_s}s"
+        fi
+    fi
+
+    echo ""
+    printf "  \033[1m[%s]\033[0m  Schritt %d/%d – %s%s\n" \
+        "${bar}" "${step}" "${TOTAL_STEPS}" "${label}" "${eta_str}"
+    echo ""
+}
+
 echo "=========================================="
 echo " Pi-hole Image Builder"
 echo "=========================================="
@@ -64,12 +103,10 @@ fi
 # 2. pi-gen klonen / aktualisieren
 # ============================================================
 if [ ! -d "${PI_GEN_DIR}" ]; then
-    echo ""
-    echo "[INFO] Klone pi-gen Repository..."
+    show_step 1 "Klone pi-gen Repository (${PI_GEN_BRANCH})..."
     git clone --depth 1 --branch "${PI_GEN_BRANCH}" "${PI_GEN_REPO}" "${PI_GEN_DIR}"
 else
-    echo ""
-    echo "[INFO] Aktualisiere pi-gen Repository..."
+    show_step 1 "Aktualisiere pi-gen Repository (${PI_GEN_BRANCH})..."
     cd "${PI_GEN_DIR}"
     git fetch origin "${PI_GEN_BRANCH}"
     git reset --hard "origin/${PI_GEN_BRANCH}"
@@ -79,8 +116,7 @@ fi
 # ============================================================
 # 3. Konfiguration in pi-gen kopieren
 # ============================================================
-echo ""
-echo "[INFO] Kopiere Konfiguration..."
+show_step 2 "Kopiere Konfiguration und Stage..."
 
 # config Datei
 cp "${PROJECT_DIR}/config" "${PI_GEN_DIR}/config"
@@ -103,8 +139,7 @@ touch "${PI_GEN_DIR}/stage5/SKIP_IMAGES" 2>/dev/null || true
 # 4. Clean Build falls gewünscht
 # ============================================================
 if [ "${CLEAN_BUILD}" = true ]; then
-    echo ""
-    echo "[INFO] Sauberer Build – lösche vorherige Artefakte..."
+    show_step 3 "Sauberer Build – lösche vorherige Artefakte..."
     rm -rf "${PI_GEN_DIR}/work" "${PI_GEN_DIR}/deploy"
 fi
 
@@ -113,27 +148,33 @@ fi
 # ============================================================
 cd "${PI_GEN_DIR}"
 
+BUILD_MODE="Docker"
+[ "${USE_DOCKER}" = false ] && BUILD_MODE="Nativ"
+show_step $(( CURRENT_STEP + 1 )) "pi-gen Build starten (${BUILD_MODE}) – das dauert 30–60 Minuten..."
+
 if [ "${USE_DOCKER}" = true ]; then
-    echo ""
-    echo "[INFO] Starte Build via Docker..."
-    echo "       Das kann 30-60 Minuten dauern."
-    echo ""
     ./build-docker.sh
 else
-    echo ""
-    echo "[INFO] Starte nativen Build..."
-    echo "       Das kann 30-60 Minuten dauern."
-    echo ""
     sudo ./build.sh
 fi
 
 # ============================================================
 # 6. Ergebnis prüfen
 # ============================================================
-echo ""
+BUILD_END=$(date +%s)
+BUILD_TOTAL=$(( BUILD_END - BUILD_START ))
+BUILD_M=$(( BUILD_TOTAL / 60 ))
+BUILD_S=$(( BUILD_TOTAL % 60 ))
+
+show_step "${TOTAL_STEPS}" "Ergebnis prüfen und kopieren..."
 if ls "${PI_GEN_DIR}/deploy/"*.img* 1>/dev/null 2>&1; then
+    # Kopiere Image ins Projekt-Verzeichnis
+    mkdir -p "${PROJECT_DIR}/deploy"
+    cp "${PI_GEN_DIR}/deploy/"*.img* "${PROJECT_DIR}/deploy/"
+
     echo "=========================================="
     echo " Build erfolgreich!"
+    echo " Gesamtdauer: ${BUILD_M}m ${BUILD_S}s"
     echo "=========================================="
     echo ""
     echo " Image(s):"
@@ -142,13 +183,10 @@ if ls "${PI_GEN_DIR}/deploy/"*.img* 1>/dev/null 2>&1; then
     echo " Nächster Schritt:"
     echo "   ./scripts/flash.sh /dev/sdX"
     echo ""
-
-    # Kopiere Image ins Projekt-Verzeichnis
-    mkdir -p "${PROJECT_DIR}/deploy"
-    cp "${PI_GEN_DIR}/deploy/"*.img* "${PROJECT_DIR}/deploy/"
 else
     echo "=========================================="
     echo " Build fehlgeschlagen!"
+    echo " Vergangene Zeit: ${BUILD_M}m ${BUILD_S}s"
     echo "=========================================="
     echo " Prüfe die Log-Ausgabe oben."
     exit 1

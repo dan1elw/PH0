@@ -69,15 +69,16 @@ cd pihole-image
 cp secrets.env.example secrets.env
 nano secrets.env  # Werte ausfüllen
 
-# 3. Image bauen (via Docker, empfohlen)
+# 3. Image bauen
 ./scripts/build.sh
 
-# 4. Image auf SD-Karte flashen
+# 4. Image auf SD-Karte flashen (ganzes Laufwerk, z.B. /dev/sdc – NICHT /dev/sdc1!)
 ./scripts/flash.sh /dev/sdX
 
 # 5. Erststart – Pi mit Netzwerk verbinden und booten
-# Der First-Boot-Service konfiguriert alles automatisch.
-# Pi-hole ist danach erreichbar unter: http://192.168.178.49/admin
+# Der First-Boot-Service installiert Pi-hole + Log2RAM und konfiguriert alles.
+# Das dauert ca. 5-10 Minuten. Danach ist Pi-hole erreichbar unter:
+#   http://192.168.178.49/admin
 ```
 
 ## Architektur
@@ -209,31 +210,44 @@ ls -la deploy/*.img.xz
 ## Image flashen
 
 ```bash
-# SD-Karte identifizieren
+# SD-Karte identifizieren (das GANZE Laufwerk, z.B. sdc – nicht sdc1!)
 lsblk
 
-# Image flashen (ACHTUNG: richtige Device-Bezeichnung verwenden!)
+# Image flashen
 ./scripts/flash.sh /dev/sdX
+
+# Optional: pv installieren für Fortschrittsbalken beim Schreiben
+sudo apt install pv
 ```
 
+**Wichtig:** Immer das ganze Laufwerk angeben (z.B. `/dev/sdc`), nicht eine Partition (z.B. `/dev/sdc1`).
+Falls du versehentlich eine Partition angibst, erkennt das Script das und fragt nach dem richtigen Laufwerk.
+
 Das Flash-Script:
-1. Schreibt das Image auf die SD-Karte
-2. Kopiert `secrets.env` auf die Boot-Partition
-3. Aktiviert SSH
+1. Entpackt das komprimierte Image (`.img.xz`) falls nötig (mit Fortschrittsanzeige)
+2. Schreibt das Image auf die SD-Karte (mit Fortschrittsanzeige via `pv` oder `dd status=progress`)
+3. Kopiert `secrets.env` auf die Boot-Partition
+4. Verifiziert, dass `secrets.env` korrekt kopiert wurde
 
 ## Ersteinrichtung (First Boot)
 
-Beim ersten Boot:
+Beim ersten Boot passiert automatisch:
 
 1. Der First-Boot-Service liest `secrets.env` von der Boot-Partition
-2. WiFi wird konfiguriert
-3. SSH-Key wird deployt
-4. Pi-hole Admin-Passwort wird gesetzt
-5. `secrets.env` wird von der Boot-Partition gelöscht
-6. Der First-Boot-Service deaktiviert sich selbst
-7. Der Pi startet neu
+2. Hostname wird gesetzt
+3. Benutzer-Passwort wird gesetzt (für sudo und Console-Login)
+4. WiFi wird konfiguriert (SSID, Passwort, statische IP)
+5. SSH-Key wird deployt
+6. **Pi-hole v6 wird installiert** (benötigt Internet-Verbindung)
+7. Pi-hole Admin-Passwort wird gesetzt, Gravity (Blocklisten) wird geladen
+8. **Log2RAM wird installiert**
+9. Alle Services werden aktiviert (Watchdog, WLAN-Monitor, Health-Check)
+10. `secrets.env` wird sicher gelöscht
+11. Der First-Boot-Service deaktiviert sich selbst
+12. Der Pi startet neu
 
-Nach ca. 2-3 Minuten ist Pi-hole erreichbar unter:
+Der gesamte Vorgang dauert ca. **5-10 Minuten** (Pi Zero W ist langsam).
+Nach dem Neustart ist Pi-hole erreichbar unter:
 - **Web UI:** http://192.168.178.49/admin
 - **DNS:** 192.168.178.49:53
 
@@ -242,15 +256,20 @@ Nach ca. 2-3 Minuten ist Pi-hole erreichbar unter:
 Nach dem Erststart:
 
 ```bash
-# Vom Desktop aus testen
+# Vom Desktop aus testen (wartet bis Pi erreichbar ist)
+./scripts/validate.sh --wait
+
+# Oder ohne Warten (wenn Pi bereits läuft)
 ./scripts/validate.sh
+
+# Mit anderer IP oder anderem User
+./scripts/validate.sh 192.168.178.50 meinuser
 
 # Oder manuell:
 ssh pi@192.168.178.49
 
 # Auf dem Pi:
 pihole status
-pihole -c -e           # Kurzstatus
 systemctl status pihole-FTL
 systemctl status log2ram
 systemctl status wlan-monitor

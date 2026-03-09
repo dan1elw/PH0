@@ -80,14 +80,14 @@ Internet
     │
     ▼
 ┌──────────┐     ┌──────────────────────────────────┐
-│  Router   │────▶│  Pi Zero W (192.168.178.49)      │
-│ (Gateway) │◀────│                                  │
-│ .178.1    │     │  Port 53: Pi-hole FTL (DNS)     │
+│  Router  │────▶│  Pi Zero W (192.168.178.49)      │
+│ (Gateway)│◀────│                                  │
+│ .178.1   │     │  Port 53: Pi-hole FTL (DNS)      │
 └──────────┘     │  Port 80: Pi-hole Web UI + API   │
-    │             │  Port 22: SSH                     │
-    ▼             └──────────────────────────────────┘
- LAN Geräte              │
- (DNS: .178.49)           │ REST API (Port 80/api)
+    │            │  Port 22: SSH                    │
+    ▼            └──────────────────────────────────┘
+ LAN Geräte               │
+ (DNS: ...178.49)         │ REST API (Port 80/api)
                           ▼
                   [Optional: Home Assistant]
                   (Polling via Pi-hole Integration)

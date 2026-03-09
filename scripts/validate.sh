@@ -3,7 +3,7 @@
 #
 # Führt automatische Tests gegen den laufenden Pi durch.
 # Verwendung:
-#   ./scripts/validate.sh                    # Defaults: 192.168.178.49, User pi
+#   ./scripts/validate.sh                    # Liest PI_IP + PI_USER aus secrets.env
 #   ./scripts/validate.sh 192.168.178.50     # Andere IP
 #   ./scripts/validate.sh 192.168.178.50 admin  # Andere IP + User
 #   ./scripts/validate.sh --wait             # Wartet bis Pi erreichbar ist
@@ -11,8 +11,21 @@
 # KEIN set -e! Tests dürfen fehlschlagen ohne das Script abzubrechen.
 set -uo pipefail
 
-PI_HOST="${1:-192.168.178.49}"
-PI_USER="${2:-pi}"
+trap 'echo ""; echo "Abbruch."; exit 130' INT TERM
+
+# Standardwerte aus secrets.env laden (falls keine Argumente übergeben)
+SECRETS_ENV="$(dirname "$0")/../secrets.env"
+_DEFAULT_HOST="192.168.178.49"
+_DEFAULT_USER="pi"
+if [ $# -eq 0 ] && [ -f "${SECRETS_ENV}" ]; then
+    # shellcheck source=/dev/null
+    source "${SECRETS_ENV}"
+    _DEFAULT_HOST="${PI_IP:-${_DEFAULT_HOST}}"
+    _DEFAULT_USER="${PI_USER:-${_DEFAULT_USER}}"
+fi
+
+PI_HOST="${1:-${_DEFAULT_HOST}}"
+PI_USER="${2:-${_DEFAULT_USER}}"
 WAIT_MODE=false
 PASSED=0
 FAILED=0
@@ -22,8 +35,8 @@ TOTAL=0
 # --wait als erstes Argument erkennen
 if [ "${PI_HOST}" = "--wait" ]; then
     WAIT_MODE=true
-    PI_HOST="${2:-192.168.178.49}"
-    PI_USER="${3:-pi}"
+    PI_HOST="${2:-${_DEFAULT_HOST}}"
+    PI_USER="${3:-${_DEFAULT_USER}}"
 fi
 
 GREEN='\033[0;32m'

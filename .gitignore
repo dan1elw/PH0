@@ -62,6 +62,7 @@ Desktop.ini
 .project
 .settings/
 *.code-workspace
+.claude/
 
 # ============================================================
 # Logs & temporäre Dateien

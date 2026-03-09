@@ -152,10 +152,14 @@ BUILD_MODE="Docker"
 [ "${USE_DOCKER}" = false ] && BUILD_MODE="Nativ"
 show_step $(( CURRENT_STEP + 1 )) "pi-gen Build starten (${BUILD_MODE}) – das dauert 30–60 Minuten..."
 
+BUILD_EXIT=0
 if [ "${USE_DOCKER}" = true ]; then
-    ./build-docker.sh
+    # Systemd-resolved (127.0.0.53) ist im Docker-Container nicht erreichbar.
+    # Google DNS als Fallback übergeben.
+    export PIGEN_DOCKER_OPTS="${PIGEN_DOCKER_OPTS:-} --dns 8.8.8.8 --dns 8.8.4.4"
+    ./build-docker.sh || BUILD_EXIT=$?
 else
-    sudo ./build.sh
+    sudo ./build.sh || BUILD_EXIT=$?
 fi
 
 # ============================================================
@@ -167,6 +171,15 @@ BUILD_M=$(( BUILD_TOTAL / 60 ))
 BUILD_S=$(( BUILD_TOTAL % 60 ))
 
 show_step "${TOTAL_STEPS}" "Ergebnis prüfen und kopieren..."
+if [ "${BUILD_EXIT}" -ne 0 ]; then
+    echo "=========================================="
+    echo " Build fehlgeschlagen! (Exit: ${BUILD_EXIT})"
+    echo " Vergangene Zeit: ${BUILD_M}m ${BUILD_S}s"
+    echo "=========================================="
+    echo " Prüfe die Log-Ausgabe oben."
+    exit "${BUILD_EXIT}"
+fi
+
 if ls "${PI_GEN_DIR}/deploy/"*.img* 1>/dev/null 2>&1; then
     # Kopiere Image ins Projekt-Verzeichnis
     mkdir -p "${PROJECT_DIR}/deploy"

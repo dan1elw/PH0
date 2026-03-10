@@ -70,8 +70,22 @@ sed -i "s/127.0.1.1.*/127.0.1.1\t${PI_HOSTNAME}/" /etc/hosts
 # ============================================================
 # 2. Benutzer-Passwort setzen
 # ============================================================
+FIRST_USER_NAME="pi"
+
+if id -u "${PI_USER}" &>/dev/null; then
+    log_info "Benutzer ${PI_USER} existiert bereits."
+elif id -u "${FIRST_USER_NAME}" &>/dev/null && [ "${PI_USER}" != "${FIRST_USER_NAME}" ]; then
+    log_info "Benenne Default-Benutzer '${FIRST_USER_NAME}' um zu '${PI_USER}'..."
+    usermod -l "${PI_USER}" -d "/home/${PI_USER}" -m "${FIRST_USER_NAME}"
+    groupmod -n "${PI_USER}" "${FIRST_USER_NAME}"
+    log_info "Umbenennung abgeschlossen."
+else
+    log_info "Lege neuen Benutzer an: ${PI_USER}"
+    useradd -m -s /bin/bash -G sudo "${PI_USER}"
+fi
+
 log_info "Setze Passwort für Benutzer: ${PI_USER}"
-echo "${PI_USER}:${PI_USER_PASSWORD}" | chpasswd
+echo "${PI_USER}:${PI_USER_PASSWORD}" | chpasswd || log_err "Passwort für ${PI_USER} konnte nicht gesetzt werden!"
 
 # ============================================================
 # 3. WiFi konfigurieren

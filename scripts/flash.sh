@@ -124,20 +124,25 @@ if [ -z "${IMAGE_FILE}" ]; then
     if [ -n "${COMPRESSED}" ]; then
         TOTAL_STEPS=6   # Entpacken kommt als Extra-Schritt hinzu
         COMP_SIZE=$(stat --printf="%s" "${COMPRESSED}")
+        BASENAME=$(basename "${COMPRESSED}")
+
+        # Entpacken nach /tmp um deploy/ nicht mit .img-Dateien zu verschmutzen
+        TEMP_IMG="/tmp/${BASENAME%.xz}"
+        TEMP_IMG="${TEMP_IMG%.gz}"
 
         show_step 1 "Entpacke $(basename "${COMPRESSED}")"
         if command -v pv > /dev/null 2>&1; then
             case "${COMPRESSED}" in
-                *.xz)  pv -N "  Entpacken" -s "${COMP_SIZE}" "${COMPRESSED}" | xz -d > "${COMPRESSED%.xz}"; IMAGE_FILE="${COMPRESSED%.xz}" ;;
-                *.gz)  pv -N "  Entpacken" -s "${COMP_SIZE}" "${COMPRESSED}" | gzip -d > "${COMPRESSED%.gz}"; IMAGE_FILE="${COMPRESSED%.gz}" ;;
-                *.zip) unzip -o "${COMPRESSED}" -d "${DEPLOY_DIR}"; IMAGE_FILE=$(ls -t "${DEPLOY_DIR}"/*.img | head -1) ;;
+                *.xz)  pv -N "  Entpacken" -s "${COMP_SIZE}" "${COMPRESSED}" | xz -d > "${TEMP_IMG}"; IMAGE_FILE="${TEMP_IMG}" ;;
+                *.gz)  pv -N "  Entpacken" -s "${COMP_SIZE}" "${COMPRESSED}" | gzip -d > "${TEMP_IMG}"; IMAGE_FILE="${TEMP_IMG}" ;;
+                *.zip) TEMP_ZIP_DIR=$(mktemp -d); unzip -o "${COMPRESSED}" -d "${TEMP_ZIP_DIR}"; IMAGE_FILE=$(ls -t "${TEMP_ZIP_DIR}"/*.img | head -1) ;;
             esac
         else
             echo "  (installiere 'pv' für Fortschrittsanzeige: sudo apt install pv)"
             case "${COMPRESSED}" in
-                *.xz)  xz -dkf "${COMPRESSED}"; IMAGE_FILE="${COMPRESSED%.xz}" ;;
-                *.gz)  gzip -dkf "${COMPRESSED}"; IMAGE_FILE="${COMPRESSED%.gz}" ;;
-                *.zip) unzip -o "${COMPRESSED}" -d "${DEPLOY_DIR}"; IMAGE_FILE=$(ls -t "${DEPLOY_DIR}"/*.img | head -1) ;;
+                *.xz)  xz -dk "${COMPRESSED}" --stdout > "${TEMP_IMG}"; IMAGE_FILE="${TEMP_IMG}" ;;
+                *.gz)  gzip -dk "${COMPRESSED}" --stdout > "${TEMP_IMG}"; IMAGE_FILE="${TEMP_IMG}" ;;
+                *.zip) TEMP_ZIP_DIR=$(mktemp -d); unzip -o "${COMPRESSED}" -d "${TEMP_ZIP_DIR}"; IMAGE_FILE=$(ls -t "${TEMP_ZIP_DIR}"/*.img | head -1) ;;
             esac
         fi
     fi

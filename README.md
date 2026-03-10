@@ -1,8 +1,6 @@
-# Pi-hole Immutable Image – Raspberry Pi Zero W
+# PH0 - Pi-hole for Raspberry Pi Zero
 
 > **Hinweis:** Dieses Projekt wurde mit Unterstützung von KI (Claude/Anthropic) erstellt.
-> Sämtlicher Code, Konfiguration und Dokumentation wurden AI-generiert und sollten vor dem
-> produktiven Einsatz geprüft und getestet werden.
 
 Reproduzierbares, versioniertes Raspberry Pi OS Image mit Pi-hole v6 als netzwerkweitem
 DNS-/Ad-Blocking-Server. Optimiert für den Raspberry Pi Zero W mit SD-Karten-Schutz,
@@ -62,23 +60,22 @@ automatisiertem Watchdog-Stack und CI/CD-Pipeline via GitHub Actions.
 
 ```bash
 # 1. Repository klonen
-git clone https://github.com/DEIN-USERNAME/pihole-image.git
-cd pihole-image
+git clone https://github.com/dan1elw/PH0.git
+cd PH0
 
 # 2. Secrets konfigurieren
 cp secrets.env.example secrets.env
 nano secrets.env  # Werte ausfüllen
 
 # 3. Image bauen
-./scripts/build.sh
+./scripts/build.sh --clean
 
 # 4. Image auf SD-Karte flashen (ganzes Laufwerk, z.B. /dev/sdc – NICHT /dev/sdc1!)
 ./scripts/flash.sh /dev/sdX
 
 # 5. Erststart – Pi mit Netzwerk verbinden und booten
-# Der First-Boot-Service installiert Pi-hole + Log2RAM und konfiguriert alles.
-# Das dauert ca. 5-10 Minuten. Danach ist Pi-hole erreichbar unter:
-#   http://192.168.178.49/admin
+# Der First-Boot-Service installiert Pi-hole + Log2RAM und konfiguriert alles. Das dauert ca. 5-10 Minuten. Danach ist Pi-hole erreichbar unter der konfigurierten IP Addresse: http://192.168.178.49/admin (default)
+./scripts/validate.sh --wait
 ```
 
 ## Architektur
@@ -163,7 +160,7 @@ pihole-image/
 
 ### secrets.env
 
-Vor dem Build muss `secrets.env` erstellt werden. Das File wird **nie** ins Repository committed.
+Vor dem Build muss `secrets.env` erstellt werden. Das File wird **niemals** ins Repository committed.
 
 ```bash
 cp secrets.env.example secrets.env
@@ -187,7 +184,7 @@ Folgende Werte müssen gesetzt werden:
 
 ### Statische IP
 
-Die statische IP ist über `PI_IP` in `secrets.env` konfigurierbar (Standard: `192.168.178.49/24`).
+Die statische IP ist über `PI_IP` in `secrets.env` konfigurierbar (Default: `192.168.178.49/24`).
 
 ## Image bauen
 
@@ -195,7 +192,7 @@ Die statische IP ist über `PI_IP` in `secrets.env` konfigurierbar (Standard: `1
 
 ```bash
 # Voraussetzung: Docker installiert
-./scripts/build.sh
+./scripts/build.sh --clean
 
 # Das fertige Image liegt in: deploy/
 ls -la deploy/*.img.xz
@@ -213,11 +210,11 @@ ls -la deploy/*.img.xz
 # SD-Karte identifizieren (das GANZE Laufwerk, z.B. sdc – nicht sdc1!)
 lsblk
 
-# Image flashen
-./scripts/flash.sh /dev/sdX
-
 # Optional: pv installieren für Fortschrittsbalken beim Schreiben
 sudo apt install pv
+
+# Image flashen (sdX ersetzen mit dem eigenen identifizierten Laufwerk!)
+./scripts/flash.sh /dev/sdX
 ```
 
 **Wichtig:** Immer das ganze Laufwerk angeben (z.B. `/dev/sdc`), nicht eine Partition (z.B. `/dev/sdc1`).
@@ -308,7 +305,7 @@ dmesg | grep -i "i/o error\|mmc\|sd"
 
 ### Image neu bauen und flashen
 
-Bei SD-Karten-Ausfall einfach ein neues Image flashen – alle Konfiguration ist
+Bei SD-Karten-Ausfall einfach ein neues Image flashen – alle Konfigurationen sind
 im Repository versioniert, Secrets in `secrets.env`.
 
 ## Troubleshooting

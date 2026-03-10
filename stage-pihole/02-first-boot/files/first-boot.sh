@@ -26,6 +26,11 @@ log_err() {
     echo "[ERROR] $(date '+%H:%M:%S') $1" >&2
 }
 
+log_warn() {
+    logger -t "${LOG_TAG}" -p daemon.warning "$1"
+    echo "[WARN]  $(date '+%H:%M:%S') $1"
+}
+
 # ============================================================
 # Prüfe ob secrets.env vorhanden ist
 # ============================================================
@@ -94,44 +99,75 @@ log_info "Konfiguriere WiFi: ${WIFI_SSID}"
 
 iw reg set "${WIFI_COUNTRY}"
 
-nmcli device wifi connect "${WIFI_SSID}" \
-    password "${WIFI_PASSWORD}" \
-    ifname wlan0 \
-    name "pihole-wifi" || true
-
-# Warten bis Verbindung steht
-log_info "Warte auf Netzwerkverbindung..."
-WIFI_CONNECTED=false
+# Warten bis wlan0 in NetworkManager sichtbar ist
+log_info "Warte auf wlan0 in NetworkManager..."
+WLAN_READY=false
 for i in $(seq 1 30); do
-    if nmcli -t -f STATE general status | grep -q "connected"; then
-        log_info "Netzwerk verbunden nach ${i} Sekunden."
-        WIFI_CONNECTED=true
+    if nmcli device status | grep -q "wlan0"; then
+        log_info "wlan0 nach ${i} Sekunden sichtbar."
+        WLAN_READY=true
         break
     fi
+    log_info "wlan0 noch nicht bereit, warte... (${i}/30)"
     sleep 1
 done
 
-if [ "${WIFI_CONNECTED}" = false ]; then
-    log_err "WLAN-Verbindung fehlgeschlagen! SSID: ${WIFI_SSID}"
-    log_err "Prüfe WIFI_SSID und WIFI_PASSWORD in secrets.env."
-    log_err "nmcli status: $(nmcli -t -f STATE general status 2>&1 || true)"
-    exit 1
+if [ "${WLAN_READY}" = false ]; then
+    log_warn "wlan0 nach 30 Sekunden nicht sichtbar – trotzdem weiter versuchen."
 fi
 
-# Statische IP setzen
-nmcli connection modify "pihole-wifi" \
-    ipv4.method manual \
-    ipv4.addresses "${PI_IP}/${PI_PREFIX}" \
-    ipv4.gateway "${PI_GATEWAY}" \
-    ipv4.dns "127.0.0.1 ${PI_GATEWAY}" \
-    wifi.cloned-mac-address stable \
-    connection.autoconnect yes
-
-# Verbindung mit neuer IP neu starten
-nmcli connection up "pihole-wifi"
-
-# Warten bis Netzwerk mit neuer IP steht
+# Expliziten WiFi-Scan anstoßen
+log_info "Starte WiFi-Scan..."
+nmcli device wifi rescan ifname wlan0 || true
 sleep 5
+
+# WiFi-Verbindung mit Retry-Logik
+WIFI_CONNECTED=false
+for attempt in $(seq 1 5); do
+    log_info "WiFi-Verbindungsversuch ${attempt}/5: ${WIFI_SSID}"
+    if nmcli device wifi connect "${WIFI_SSID}" \
+            password "${WIFI_PASSWORD}" \
+            ifname wlan0 \
+            name "pihole-wifi"; then
+        log_info "WiFi verbunden (Versuch ${attempt})."
+        WIFI_CONNECTED=true
+        break
+    else
+        log_warn "WiFi-Verbindungsversuch ${attempt} fehlgeschlagen."
+        if [ "${attempt}" -lt 5 ]; then
+            log_info "Erneuter Scan vor nächstem Versuch..."
+            nmcli device wifi rescan ifname wlan0 || true
+            sleep 10
+        fi
+    fi
+done
+
+if [ "${WIFI_CONNECTED}" = true ]; then
+    # Statische IP setzen
+    nmcli connection modify "pihole-wifi" \
+        ipv4.method manual \
+        ipv4.addresses "${PI_IP}/${PI_PREFIX}" \
+        ipv4.gateway "${PI_GATEWAY}" \
+        ipv4.dns "127.0.0.1 ${PI_GATEWAY}" \
+        wifi.cloned-mac-address stable \
+        connection.autoconnect yes
+
+    # Verbindung mit neuer IP neu starten
+    nmcli connection up "pihole-wifi" || true
+
+    # Warten bis IP-Adresse auf wlan0 sichtbar ist
+    log_info "Warte auf IP-Adresse auf wlan0..."
+    for i in $(seq 1 30); do
+        if ip -4 addr show wlan0 | grep -q "inet "; then
+            log_info "IP-Adresse auf wlan0 nach ${i} Sekunden sichtbar."
+            break
+        fi
+        sleep 1
+    done
+else
+    log_err "WiFi-Konfiguration fehlgeschlagen nach 5 Versuchen. SSID: ${WIFI_SSID}"
+    log_err "WiFi-Konfiguration fehlgeschlagen. Bitte manuell konfigurieren."
+fi
 
 # ============================================================
 # 4. SSH-Key deployen

@@ -21,17 +21,17 @@ PHASE_START=${SCRIPT_START}
 exec > >(tee -a "${LOGFILE}") 2>&1
 
 log_info() {
-    logger -t "${LOG_TAG}" -p daemon.info "$1"
+    logger -t "${LOG_TAG}" -p daemon.info -- "$1"
     echo "[INFO]  $(date '+%H:%M:%S') $1"
 }
 
 log_warn() {
-    logger -t "${LOG_TAG}" -p daemon.warning "$1"
+    logger -t "${LOG_TAG}" -p daemon.warning -- "$1"
     echo "[WARN]  $(date '+%H:%M:%S') $1"
 }
 
 log_err() {
-    logger -t "${LOG_TAG}" -p daemon.err "$1"
+    logger -t "${LOG_TAG}" -p daemon.err -- "$1"
     echo "[ERROR] $(date '+%H:%M:%S') $1" >&2
 }
 
@@ -50,6 +50,15 @@ phase_fail() {
     local elapsed=$(( $(date +%s) - PHASE_START ))
     log_err "Phase $1 fehlgeschlagen (${elapsed}s)"
     FAILED_PHASES+=("$1")
+}
+
+# Wie phase_end, aber nur wenn diese Phase nicht schon als fehlgeschlagen markiert wurde
+phase_end_or_skip() {
+    local num=$1
+    for p in "${FAILED_PHASES[@]}"; do
+        [ "$p" = "$num" ] && return 0
+    done
+    phase_end "$num"
 }
 
 # ============================================================
@@ -151,7 +160,7 @@ else
     phase_fail 2
 fi
 
-phase_end 2
+phase_end_or_skip 2
 
 # ============================================================
 # 3. WiFi konfigurieren
@@ -159,11 +168,17 @@ phase_end 2
 phase_start 3 "WiFi konfigurieren"
 log_info "SSID: ${WIFI_SSID}, Land: ${WIFI_COUNTRY}"
 
+# WiFi-Adapter freigeben (falls soft-blocked)
+rfkill unblock wifi 2>/dev/null || true
+ip link set wlan0 up 2>/dev/null || true
+sleep 2
+
 if iw reg set "${WIFI_COUNTRY}"; then
     log_info "Regulatory domain gesetzt: ${WIFI_COUNTRY}"
 else
     log_warn "iw reg set fehlgeschlagen (nicht kritisch)"
 fi
+sleep 3  # Regulatory-Domain-Wechsel abwarten
 
 # Warten bis wlan0 in NetworkManager sichtbar ist
 log_info "Warte auf wlan0 in NetworkManager..."
@@ -174,7 +189,6 @@ for i in $(seq 1 30); do
         WLAN_READY=true
         break
     fi
-    log_info "wlan0 noch nicht bereit, warte... (${i}/30)"
     sleep 1
 done
 
@@ -182,10 +196,26 @@ if [ "${WLAN_READY}" = false ]; then
     log_warn "wlan0 nach 30s nicht sichtbar – trotzdem weiter versuchen."
 fi
 
-# Expliziten WiFi-Scan anstoßen
-log_info "Starte WiFi-Scan..."
-nmcli device wifi rescan ifname wlan0 2>/dev/null || true
-sleep 5
+# Warten bis SSID in den Scan-Ergebnissen erscheint (bis zu 90s)
+log_info "Warte auf SSID '${WIFI_SSID}' in Scan-Ergebnissen..."
+SSID_FOUND=false
+for i in $(seq 1 18); do
+    nmcli device wifi rescan ifname wlan0 2>/dev/null || true
+    sleep 5
+    if nmcli device wifi list ifname wlan0 2>/dev/null | grep -qF "${WIFI_SSID}"; then
+        log_info "SSID '${WIFI_SSID}' nach ${i}x5s gefunden."
+        SSID_FOUND=true
+        break
+    fi
+    log_info "SSID noch nicht in Scan-Ergebnissen (${i}/18)..."
+done
+
+if [ "${SSID_FOUND}" = false ]; then
+    log_warn "SSID '${WIFI_SSID}' nach 90s nicht gefunden – versuche trotzdem zu verbinden."
+fi
+
+# Altes Verbindungsprofil löschen (verhindert Konflikt bei Retry nach Partial-Connect)
+nmcli connection delete "pihole-wifi" 2>/dev/null || true
 
 # WiFi-Verbindung mit Retry-Logik
 WIFI_CONNECTED=false
@@ -214,7 +244,7 @@ if [ "${WIFI_CONNECTED}" = true ]; then
             ipv4.method manual \
             ipv4.addresses "${PI_IP}/${PI_PREFIX}" \
             ipv4.gateway "${PI_GATEWAY}" \
-            ipv4.dns "127.0.0.1 ${PI_GATEWAY}" \
+            ipv4.dns "${PI_GATEWAY}" \
             wifi.cloned-mac-address stable \
             connection.autoconnect yes; then
         log_info "Statische IP konfiguriert."
@@ -254,17 +284,21 @@ fi
 log_info "----------------------------------------------------------------"
 log_info "Prüfe Internet-Konnektivität..."
 NET_OK=false
-for i in $(seq 1 5); do
-    if curl -sSf --max-time 10 https://install.pi-hole.net > /dev/null 2>&1; then
-        log_info "Internet erreichbar (Versuch ${i})."
-        NET_OK=true
-        break
+if [ "${WIFI_CONNECTED}" = false ]; then
+    log_err "Kein Internet erreichbar (WiFi nicht verbunden) – Downloads werden fehlschlagen."
+else
+    for i in $(seq 1 5); do
+        if curl -sSf --max-time 10 https://install.pi-hole.net > /dev/null 2>&1; then
+            log_info "Internet erreichbar (Versuch ${i})."
+            NET_OK=true
+            break
+        fi
+        log_warn "Kein Internet (Versuch ${i}/5) – warte 15s..."
+        sleep 15
+    done
+    if [ "${NET_OK}" = false ]; then
+        log_err "Kein Internet erreichbar! Download-basierte Installationen werden fehlschlagen."
     fi
-    log_warn "Kein Internet (Versuch ${i}/5) – warte 15s..."
-    sleep 15
-done
-if [ "${NET_OK}" = false ]; then
-    log_err "Kein Internet erreichbar! Download-basierte Installationen werden fehlschlagen."
 fi
 
 # ============================================================
@@ -296,7 +330,7 @@ else
     phase_fail 4
 fi
 
-phase_end 4
+phase_end_or_skip 4
 
 # ============================================================
 # 5. Pi-hole v6 installieren
@@ -337,7 +371,9 @@ fi
 
 if command -v pihole &>/dev/null; then
     log_info "Setze Pi-hole Admin-Passwort..."
-    if pihole -a -p "${PIHOLE_PASSWORD}"; then
+    # pihole setpassword ist v6-Syntax; -a -p als Fallback für v5
+    if pihole setpassword "${PIHOLE_PASSWORD}" 2>/dev/null || \
+       pihole -a -p "${PIHOLE_PASSWORD}" 2>/dev/null; then
         log_info "Pi-hole Admin-Passwort gesetzt."
     else
         log_warn "Pi-hole Passwort konnte nicht gesetzt werden – bitte manuell setzen."
@@ -353,7 +389,7 @@ else
     log_warn "pihole-Befehl nicht gefunden – Passwort und Gravity übersprungen."
 fi
 
-phase_end 5
+phase_end_or_skip 5
 
 # ============================================================
 # 6. Log2RAM installieren
@@ -422,7 +458,7 @@ OnCalendar=*-*-* *:00:00
 EOF
 log_info "Log2RAM Timer-Override geschrieben."
 
-phase_end 6
+phase_end_or_skip 6
 
 # ============================================================
 # 7. Services aktivieren

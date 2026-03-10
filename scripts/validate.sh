@@ -149,14 +149,42 @@ echo "=========================================="
 echo ""
 echo "--- Netzwerk ---"
 
-run_test "Ping erreichbar" ping -c 1 -W 5 "${PI_HOST}"
+# Ping ist Voraussetzung für alle weiteren Tests
+PING_OK=false
+if ping -c 1 -W 5 "${PI_HOST}" > /dev/null 2>&1; then
+    test_pass "Ping erreichbar"
+    PING_OK=true
+else
+    test_fail "Ping erreichbar"
+fi
 
-run_test "SSH-Verbindung" ssh ${SSH_OPTS} "${PI_USER}@${PI_HOST}" "echo ok"
+if [ "${PING_OK}" = false ]; then
+    echo ""
+    echo "=========================================="
+    printf " Ergebnis: ${RED}Pi nicht erreichbar${NC}\n"
+    echo "=========================================="
+    echo ""
+    echo " ${PI_HOST} antwortet nicht auf Ping."
+    echo ""
+    echo " Mögliche Ursachen:"
+    echo "   • First Boot läuft noch (Pi-hole Installation dauert 5-10 Min)"
+    echo "   • WiFi-Verbindung fehlgeschlagen (falsche SSID/Passwort in secrets.env?)"
+    echo "   • Falsche IP-Adresse (erwartet: ${PI_HOST})"
+    echo "   • Pi hat keine Stromversorgung oder bootet noch"
+    echo ""
+    echo " Erneut prüfen mit:"
+    echo "   ./scripts/validate.sh --wait"
+    echo ""
+    exit 1
+fi
 
 # Prüfe ob SSH funktioniert, bevor wir Remote-Tests machen
 SSH_OK=false
 if ssh ${SSH_OPTS} "${PI_USER}@${PI_HOST}" "echo ok" > /dev/null 2>&1; then
+    test_pass "SSH-Verbindung"
     SSH_OK=true
+else
+    test_fail "SSH-Verbindung"
 fi
 
 if [ "${HAS_DIG}" = true ]; then
@@ -189,8 +217,13 @@ fi
 # ============================================================
 if [ "${SSH_OK}" = false ]; then
     echo ""
-    echo "${RED}[WARN]${NC} SSH nicht verfügbar – überspringe Remote-Tests."
-    echo "       Prüfe SSH-Key und Erreichbarkeit."
+    printf "${YELLOW}[INFO]${NC} SSH nicht verfügbar – Remote-Tests übersprungen.\n"
+    echo "       Pi ist erreichbar (Ping OK), aber SSH schlägt fehl."
+    echo "       Mögliche Ursachen:"
+    echo "         • First Boot noch nicht abgeschlossen"
+    echo "         • SSH-Key stimmt nicht überein"
+    echo "         • Falscher Benutzer (erwartet: ${PI_USER})"
+    echo "       Debug: ssh -v ${PI_USER}@${PI_HOST}"
 else
     echo ""
     echo "--- Services ---"
@@ -305,7 +338,9 @@ echo ""
 
 if [ ${FAILED} -gt 0 ]; then
     echo "Einige Tests sind fehlgeschlagen. Prüfe die betroffenen Services."
-    echo "Debug: ssh ${PI_USER}@${PI_HOST} 'journalctl -b --no-pager | tail -50'"
+    if [ "${SSH_OK}" = true ]; then
+        echo "Debug: ssh ${PI_USER}@${PI_HOST} 'journalctl -b --no-pager | tail -50'"
+    fi
     exit 1
 else
     echo "Alle Tests bestanden! Pi-hole ist einsatzbereit."

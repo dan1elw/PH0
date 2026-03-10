@@ -168,93 +168,128 @@ phase_end_or_skip 2
 phase_start 3 "WiFi konfigurieren"
 log_info "SSID: ${WIFI_SSID}, Land: ${WIFI_COUNTRY}"
 
-# WiFi-Adapter freigeben (falls soft-blocked)
+# rfkill Status
 rfkill unblock wifi 2>/dev/null || true
+log_info "rfkill Status:"
+rfkill list 2>/dev/null || true
+
+# Kernel-Diagnose: brcmfmac Firmware-Ladevorgang
+log_info "Kernel brcmfmac/wlan Status (dmesg):"
+dmesg 2>/dev/null | grep -E "brcm|wlan0|firmware" | tail -10 || true
+
+# Regulatory Domain dauerhaft setzen (cfg80211 sperrt ohne Country alle Kanäle)
+log_info "Setze Regulatory domain: ${WIFI_COUNTRY}"
+echo "REGDOMAIN=${WIFI_COUNTRY}" > /etc/default/crda 2>/dev/null || true
+iw reg set "${WIFI_COUNTRY}" 2>/dev/null || true
+
+# brcmfmac mit Regulatory Domain neu laden.
+# NM muss vorher gestoppt werden, sonst hält es das Device offen
+# und modprobe -r schlägt still fehl.
+log_info "Lade brcmfmac neu (NM kurz stoppen)..."
+systemctl stop NetworkManager 2>/dev/null || true
+sleep 1
+if modprobe -r brcmfmac 2>/dev/null; then
+    sleep 2
+    iw reg set "${WIFI_COUNTRY}" 2>/dev/null || true
+    modprobe brcmfmac 2>/dev/null || true
+    sleep 5
+    log_info "brcmfmac neu geladen. Kernel-Status:"
+    dmesg 2>/dev/null | grep -E "brcm|wlan0" | tail -8 || true
+else
+    log_warn "brcmfmac konnte nicht entladen werden – Firmware bereits in Betrieb."
+fi
+log_info "Starte NetworkManager..."
+systemctl start NetworkManager 2>/dev/null || true
+sleep 3
+
+# Interface manuell hochbringen: NM lässt wlan0 auf "unavailable" wenn es DOWN ist
+log_info "Bringe wlan0 hoch (ip link set up)..."
 ip link set wlan0 up 2>/dev/null || true
 sleep 2
 
-if iw reg set "${WIFI_COUNTRY}"; then
-    log_info "Regulatory domain gesetzt: ${WIFI_COUNTRY}"
-else
-    log_warn "iw reg set fehlgeschlagen (nicht kritisch)"
-fi
-sleep 3  # Regulatory-Domain-Wechsel abwarten
-
-# Warten bis wlan0 in NetworkManager sichtbar ist
-log_info "Warte auf wlan0 in NetworkManager..."
+# Warte auf wlan0 "disconnected" state (max. 60s)
+log_info "Warte auf wlan0 (max. 60s)..."
 WLAN_READY=false
-for i in $(seq 1 30); do
-    if nmcli device status 2>/dev/null | grep -q "wlan0"; then
-        log_info "wlan0 nach ${i}s sichtbar."
-        WLAN_READY=true
-        break
-    fi
+for i in $(seq 1 60); do
+    STATE=$(nmcli -t -f DEVICE,STATE device status 2>/dev/null | grep "^wlan0:" | cut -d: -f2 || echo "")
+    case "${STATE}" in
+        disconnected|connected)
+            log_info "wlan0 nach ${i}s bereit (Status: ${STATE})."
+            WLAN_READY=true
+            break
+            ;;
+        unmanaged)
+            if [ $(( i % 15 )) -eq 0 ]; then
+                log_info "wlan0 unmanaged (${i}/60s) – erzwinge NM-Verwaltung..."
+                nmcli device set wlan0 managed yes 2>/dev/null || true
+                ip link set wlan0 up 2>/dev/null || true
+            fi
+            ;;
+        unavailable)
+            if [ $(( i % 15 )) -eq 0 ]; then
+                log_info "wlan0 noch unavailable (${i}/60s) – versuche ip link set up..."
+                ip link set wlan0 up 2>/dev/null || true
+            fi
+            ;;
+    esac
     sleep 1
 done
 
 if [ "${WLAN_READY}" = false ]; then
-    log_warn "wlan0 nach 30s nicht sichtbar – trotzdem weiter versuchen."
+    LAST_STATE=$(nmcli -t -f DEVICE,STATE device status 2>/dev/null | grep "^wlan0:" | cut -d: -f2 || echo "unbekannt")
+    log_warn "wlan0 nach 60s nicht bereit (letzter Status: ${LAST_STATE})."
+    log_info "dmesg Abschluss-Diagnose:"
+    dmesg 2>/dev/null | grep -E "brcm|wlan0|firmware" | tail -15 || true
+    log_info "ip link show wlan0:"
+    ip link show wlan0 2>/dev/null || true
 fi
 
-# Warten bis SSID in den Scan-Ergebnissen erscheint (bis zu 90s)
-log_info "Warte auf SSID '${WIFI_SSID}' in Scan-Ergebnissen..."
-SSID_FOUND=false
-for i in $(seq 1 18); do
-    nmcli device wifi rescan ifname wlan0 2>/dev/null || true
-    sleep 5
-    if nmcli device wifi list ifname wlan0 2>/dev/null | grep -qF "${WIFI_SSID}"; then
-        log_info "SSID '${WIFI_SSID}' nach ${i}x5s gefunden."
-        SSID_FOUND=true
-        break
-    fi
-    log_info "SSID noch nicht in Scan-Ergebnissen (${i}/18)..."
-done
+# Scan-Ergebnisse zur Diagnose loggen
+nmcli device wifi rescan ifname wlan0 2>/dev/null || true
+sleep 5
+log_info "Sichtbare Netzwerke (Diagnose):"
+nmcli -t -f SSID device wifi list ifname wlan0 2>/dev/null | head -20 || true
 
-if [ "${SSID_FOUND}" = false ]; then
-    log_warn "SSID '${WIFI_SSID}' nach 90s nicht gefunden – versuche trotzdem zu verbinden."
-fi
-
-# Altes Verbindungsprofil löschen (verhindert Konflikt bei Retry nach Partial-Connect)
+# Verbindungsprofil anlegen – NM scannt intern beim Aktivieren
+log_info "Lege Verbindungsprofil an..."
 nmcli connection delete "pihole-wifi" 2>/dev/null || true
 
-# WiFi-Verbindung mit Retry-Logik
 WIFI_CONNECTED=false
-for attempt in $(seq 1 5); do
-    log_info "WiFi-Verbindungsversuch ${attempt}/5: ${WIFI_SSID}"
-    if nmcli device wifi connect "${WIFI_SSID}" \
-            password "${WIFI_PASSWORD}" \
-            ifname wlan0 \
-            name "pihole-wifi" 2>&1; then
-        log_info "WiFi verbunden (Versuch ${attempt})."
-        WIFI_CONNECTED=true
-        break
-    else
-        log_warn "WiFi-Verbindungsversuch ${attempt} fehlgeschlagen."
-        if [ "${attempt}" -lt 5 ]; then
-            log_info "Erneuter Scan vor nächstem Versuch..."
-            nmcli device wifi rescan ifname wlan0 2>/dev/null || true
-            sleep 10
+if nmcli connection add \
+        type wifi \
+        con-name "pihole-wifi" \
+        ifname wlan0 \
+        ssid "${WIFI_SSID}" \
+        wifi-sec.key-mgmt wpa-psk \
+        wifi-sec.psk "${WIFI_PASSWORD}" \
+        ipv4.method manual \
+        ipv4.addresses "${PI_IP}/${PI_PREFIX}" \
+        ipv4.gateway "${PI_GATEWAY}" \
+        ipv4.dns "${PI_GATEWAY}" \
+        wifi.cloned-mac-address stable \
+        connection.autoconnect yes 2>&1; then
+    log_info "Verbindungsprofil erstellt."
+
+    for attempt in $(seq 1 3); do
+        log_info "Aktiviere WiFi-Verbindung, Versuch ${attempt}/3 (max. 120s)..."
+        # -w: globaler nmcli-Timeout (ältere Versionen kennen kein --timeout bei connection up)
+        if nmcli -w 120 connection up "pihole-wifi" 2>&1; then
+            log_info "WiFi verbunden (Versuch ${attempt})."
+            WIFI_CONNECTED=true
+            break
+        else
+            log_warn "Verbindungsversuch ${attempt} fehlgeschlagen."
+            if [ "${attempt}" -lt 3 ]; then
+                log_info "Warte 15s vor nächstem Versuch..."
+                sleep 15
+            fi
         fi
-    fi
-done
+    done
+else
+    log_err "Verbindungsprofil konnte nicht erstellt werden!"
+fi
 
 if [ "${WIFI_CONNECTED}" = true ]; then
-    log_info "Setze statische IP: ${PI_IP}/${PI_PREFIX}, GW: ${PI_GATEWAY}"
-    if nmcli connection modify "pihole-wifi" \
-            ipv4.method manual \
-            ipv4.addresses "${PI_IP}/${PI_PREFIX}" \
-            ipv4.gateway "${PI_GATEWAY}" \
-            ipv4.dns "${PI_GATEWAY}" \
-            wifi.cloned-mac-address stable \
-            connection.autoconnect yes; then
-        log_info "Statische IP konfiguriert."
-    else
-        log_warn "connection modify fehlgeschlagen – IP möglicherweise dynamisch."
-    fi
-
-    log_info "Starte WiFi-Verbindung neu..."
-    nmcli connection up "pihole-wifi" 2>&1 || log_warn "connection up fehlgeschlagen (ignoriert)"
-
     # Warten bis IP-Adresse auf wlan0 sichtbar ist
     log_info "Warte auf IP-Adresse auf wlan0..."
     IP_ASSIGNED=false
@@ -270,11 +305,10 @@ if [ "${WIFI_CONNECTED}" = true ]; then
     if [ "${IP_ASSIGNED}" = false ]; then
         log_warn "Keine IP-Adresse auf wlan0 nach 30s sichtbar."
     fi
-
     phase_end 3
 else
-    log_err "WiFi-Konfiguration fehlgeschlagen nach 5 Versuchen. SSID: ${WIFI_SSID}"
-    log_err "WiFi-Konfiguration fehlgeschlagen. Bitte manuell konfigurieren."
+    log_err "WiFi-Konfiguration fehlgeschlagen. SSID: ${WIFI_SSID}"
+    log_err "Bitte manuell konfigurieren."
     phase_fail 3
 fi
 

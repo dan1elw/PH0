@@ -118,8 +118,10 @@ fi
 # ============================================================
 show_step 2 "Kopiere Konfiguration und Stage..."
 
-# config Datei
+# config Datei – IMG_NAME um Uhrzeit ergänzen (HHMM) damit mehrere
+# Builds am gleichen Tag unterscheidbar sind
 cp "${PROJECT_DIR}/config" "${PI_GEN_DIR}/config"
+sed -i "s/^IMG_NAME=.*/IMG_NAME=$(date '+%H%M')-pihole-zerow/" "${PI_GEN_DIR}/config"
 
 # Custom Stage kopieren (nicht verlinken – Docker-Build kann Symlinks
 # außerhalb des Build-Kontexts nicht auflösen)

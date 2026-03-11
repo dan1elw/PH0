@@ -440,7 +440,7 @@ else
         if tar -xzf "${LOG2RAM_TARBALL}" -C "${LOG2RAM_DIR}" --strip-components=1; then
             log_info "Log2RAM entpackt."
             chmod +x "${LOG2RAM_DIR}/install.sh"
-            if bash "${LOG2RAM_DIR}/install.sh"; then
+            if (cd "${LOG2RAM_DIR}" && bash install.sh); then
                 log_info "Log2RAM Installation erfolgreich."
             else
                 log_err "Log2RAM install.sh fehlgeschlagen (Exit-Code: $?)!"

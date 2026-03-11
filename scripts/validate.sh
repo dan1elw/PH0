@@ -336,14 +336,26 @@ echo " (${TOTAL} Tests)"
 echo "=========================================="
 echo ""
 
+PIHOLE_OK=false
+if curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 \
+    "http://${PI_HOST}/admin/" 2>/dev/null | grep -qE "200|302|301"; then
+    PIHOLE_OK=true
+fi
+
 if [ ${FAILED} -gt 0 ]; then
     echo "Einige Tests sind fehlgeschlagen. Prüfe die betroffenen Services."
     if [ "${SSH_OK}" = true ]; then
         echo "Debug: ssh ${PI_USER}@${PI_HOST} 'journalctl -b --no-pager | tail -50'"
         echo "First-Boot Log: ssh ${PI_USER}@${PI_HOST} 'cat /var/log/first-boot.log'"
     fi
-    exit 1
 else
     echo "Alle Tests bestanden! Pi-hole ist einsatzbereit."
-    exit 0
 fi
+
+if [ "${PIHOLE_OK}" = true ]; then
+    echo ""
+    echo "  Pi-hole Admin: http://${PI_HOST}/admin"
+    echo ""
+fi
+
+[ ${FAILED} -gt 0 ] && exit 1 || exit 0

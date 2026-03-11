@@ -73,6 +73,22 @@ install -v -m 644 \
     "${ROOTFS_DIR}/etc/systemd/system/health-check.timer"
 
 # ============================================================
+# WiFi Country Code in config.txt (KRITISCH: ohne country= bleibt
+# brcmfmac beim ersten Boot in NM als "unavailable" hängen)
+# ============================================================
+CONFIGTXT="${ROOTFS_DIR}/boot/firmware/config.txt"
+if [ -f "${CONFIGTXT}" ]; then
+    if grep -q "^country=" "${CONFIGTXT}"; then
+        sed -i "s/^country=.*/country=DE/" "${CONFIGTXT}"
+    else
+        printf "\n# WiFi Country Code\ncountry=DE\n" >> "${CONFIGTXT}"
+    fi
+    echo "country=DE in config.txt gesetzt."
+else
+    echo "[WARN] config.txt nicht gefunden: ${CONFIGTXT}"
+fi
+
+# ============================================================
 # NetworkManager: DNS-Management deaktivieren (Pi-hole übernimmt)
 # ============================================================
 mkdir -p "${ROOTFS_DIR}/etc/NetworkManager/conf.d"

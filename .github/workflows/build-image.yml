@@ -59,8 +59,9 @@ jobs:
 
       - name: Configure pi-gen
         run: |
-          # config Datei kopieren
+          # config Datei kopieren – IMG_NAME um Uhrzeit ergänzen (HHMM)
           cp config pi-gen-build/config
+          sed -i "s/^IMG_NAME=.*/IMG_NAME=$(date '+%H%M')-pihole-zerow/" pi-gen-build/config
 
           # Custom Stage kopieren
           cp -a stage-pihole pi-gen-build/stage-pihole
@@ -102,7 +103,7 @@ jobs:
           files: ${{ steps.find_image.outputs.image_path }}
           generate_release_notes: true
           body: |
-            ## Pi-hole Image Release ${{ github.ref_name }}
+            ## PH0 Release ${{ github.ref_name }}
 
             ### Enthaltene Komponenten
             - Raspberry Pi OS Lite (Bookworm, armhf)

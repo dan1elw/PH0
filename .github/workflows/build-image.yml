@@ -103,7 +103,7 @@ jobs:
           files: ${{ steps.find_image.outputs.image_path }}
           generate_release_notes: true
           body: |
-            ## Pi-hole Image Release ${{ github.ref_name }}
+            ## PH0 Release ${{ github.ref_name }}
 
             ### Enthaltene Komponenten
             - Raspberry Pi OS Lite (Bookworm, armhf)

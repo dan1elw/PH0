@@ -170,42 +170,24 @@ log_info "SSID: ${WIFI_SSID}, Land: ${WIFI_COUNTRY}"
 
 # rfkill Status
 rfkill unblock wifi 2>/dev/null || true
-log_info "rfkill Status:"
-rfkill list 2>/dev/null || true
+log_info "rfkill Status: $(rfkill list 2>/dev/null | tr '\n' ' ' || echo 'unbekannt')"
 
-# Kernel-Diagnose: brcmfmac Firmware-Ladevorgang
-log_info "Kernel brcmfmac/wlan Status (dmesg):"
-dmesg 2>/dev/null | grep -E "brcm|wlan0|firmware" | tail -10 || true
-
-# Regulatory Domain dauerhaft setzen (cfg80211 sperrt ohne Country alle Kanäle)
+# Regulatory Domain setzen und WiFi-Stack über NM-Radio-Toggle neu initialisieren.
+# Hintergrund: brcmfmac (SDIO) startet ohne country= in config.txt ohne Regulatory Domain.
+# NM's wpa_supplicant markiert wlan0 dann als "unavailable".
+# Fix: iw reg set → nmcli radio wifi off/on → wpa_supplicant startet neu mit korrektem Domain.
 log_info "Setze Regulatory domain: ${WIFI_COUNTRY}"
 echo "REGDOMAIN=${WIFI_COUNTRY}" > /etc/default/crda 2>/dev/null || true
 iw reg set "${WIFI_COUNTRY}" 2>/dev/null || true
 
-# brcmfmac mit Regulatory Domain neu laden.
-# NM muss vorher gestoppt werden, sonst hält es das Device offen
-# und modprobe -r schlägt still fehl.
-log_info "Lade brcmfmac neu (NM kurz stoppen)..."
-systemctl stop NetworkManager 2>/dev/null || true
-sleep 1
-if modprobe -r brcmfmac 2>/dev/null; then
-    sleep 2
-    iw reg set "${WIFI_COUNTRY}" 2>/dev/null || true
-    modprobe brcmfmac 2>/dev/null || true
-    sleep 5
-    log_info "brcmfmac neu geladen. Kernel-Status:"
-    dmesg 2>/dev/null | grep -E "brcm|wlan0" | tail -8 || true
-else
-    log_warn "brcmfmac konnte nicht entladen werden – Firmware bereits in Betrieb."
-fi
-log_info "Starte NetworkManager..."
-systemctl start NetworkManager 2>/dev/null || true
+log_info "WiFi-Radio neu initialisieren (nmcli radio off/on)..."
+nmcli radio wifi off 2>/dev/null || true
 sleep 3
+nmcli radio wifi on 2>/dev/null || true
+sleep 5
 
-# Interface manuell hochbringen: NM lässt wlan0 auf "unavailable" wenn es DOWN ist
-log_info "Bringe wlan0 hoch (ip link set up)..."
-ip link set wlan0 up 2>/dev/null || true
-sleep 2
+log_info "NM Radio-Status: $(nmcli radio 2>/dev/null | tr '\n' ' ' || echo 'unbekannt')"
+log_info "Kernel brcmfmac Status: $(dmesg 2>/dev/null | grep -E "brcm|wlan0" | tail -5 | tr '\n' '|' || true)"
 
 # Warte auf wlan0 "disconnected" state (max. 60s)
 log_info "Warte auf wlan0 (max. 60s)..."
@@ -222,13 +204,11 @@ for i in $(seq 1 60); do
             if [ $(( i % 15 )) -eq 0 ]; then
                 log_info "wlan0 unmanaged (${i}/60s) – erzwinge NM-Verwaltung..."
                 nmcli device set wlan0 managed yes 2>/dev/null || true
-                ip link set wlan0 up 2>/dev/null || true
             fi
             ;;
         unavailable)
             if [ $(( i % 15 )) -eq 0 ]; then
-                log_info "wlan0 noch unavailable (${i}/60s) – versuche ip link set up..."
-                ip link set wlan0 up 2>/dev/null || true
+                log_info "wlan0 noch unavailable (${i}/60s)."
             fi
             ;;
     esac
@@ -236,12 +216,9 @@ for i in $(seq 1 60); do
 done
 
 if [ "${WLAN_READY}" = false ]; then
-    LAST_STATE=$(nmcli -t -f DEVICE,STATE device status 2>/dev/null | grep "^wlan0:" | cut -d: -f2 || echo "unbekannt")
-    log_warn "wlan0 nach 60s nicht bereit (letzter Status: ${LAST_STATE})."
-    log_info "dmesg Abschluss-Diagnose:"
-    dmesg 2>/dev/null | grep -E "brcm|wlan0|firmware" | tail -15 || true
-    log_info "ip link show wlan0:"
-    ip link show wlan0 2>/dev/null || true
+    log_warn "wlan0 nach 60s nicht bereit (Status: $(nmcli -t -f DEVICE,STATE device status 2>/dev/null | grep "^wlan0:" | cut -d: -f2 || echo "unbekannt"))."
+    log_info "ip link: $(ip link show wlan0 2>/dev/null | head -1 || echo 'nicht gefunden')"
+    log_info "dmesg: $(dmesg 2>/dev/null | grep -E "brcm|wlan0" | tail -5 | tr '\n' '|' || true)"
 fi
 
 # Scan-Ergebnisse zur Diagnose loggen
@@ -290,6 +267,11 @@ else
 fi
 
 if [ "${WIFI_CONNECTED}" = true ]; then
+    # DNS manuell setzen: NM schreibt resolv.conf nicht wenn dns=none konfiguriert ist
+    # (dns=none ist nötig damit Pi-hole DNS übernimmt – aber vor Installation brauchen wir DNS)
+    echo "nameserver ${PI_GATEWAY}" > /etc/resolv.conf
+    log_info "DNS gesetzt: nameserver ${PI_GATEWAY}"
+
     # Warten bis IP-Adresse auf wlan0 sichtbar ist
     log_info "Warte auf IP-Adresse auf wlan0..."
     IP_ASSIGNED=false

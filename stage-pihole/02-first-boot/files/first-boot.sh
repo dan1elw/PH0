@@ -374,6 +374,18 @@ else
         log_err "Pi-hole Installer konnte nicht heruntergeladen werden!"
         phase_fail 5
     else
+        # IPv4 erzwingen und Timeouts setzen damit apt update nicht auf IPv6-Timeouts hängt
+        cat > /etc/apt/apt.conf.d/99force-ipv4 << 'APTCONF'
+Acquire::ForceIPv4 "true";
+Acquire::http::Timeout "60";
+Acquire::https::Timeout "60";
+Acquire::Retries "3";
+APTCONF
+        log_info "apt-get update (IPv4 erzwungen, Timeout 60s)..."
+        if ! apt-get update -qq 2>&1; then
+            log_warn "apt-get update fehlgeschlagen – Pi-hole-Installer versucht es erneut."
+        fi
+
         log_info "Starte Pi-hole Installation (unattended)..."
         if bash "${PIHOLE_INSTALLER}" --unattended; then
             log_info "Pi-hole Installation erfolgreich."
@@ -480,6 +492,9 @@ phase_end_or_skip 6
 # 7. Services aktivieren
 # ============================================================
 phase_start 7 "Services aktivieren"
+
+# Watchdog benötigt /var/log/watchdog
+mkdir -p /var/log/watchdog
 
 for svc in watchdog wlan-monitor health-check.timer; do
     if systemctl list-unit-files --full 2>/dev/null | grep -q "^${svc}"; then

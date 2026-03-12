@@ -46,6 +46,14 @@ if ! grep -q "bcm2835_wdt" "${ROOTFS_DIR}/etc/modules" 2>/dev/null; then
     echo "bcm2835_wdt" >> "${ROOTFS_DIR}/etc/modules"
 fi
 
+# Watchdog Service: nach systemd-modules-load starten, damit bcm2835_wdt
+# und /dev/watchdog verfügbar sind bevor watchdog.service startet.
+mkdir -p "${ROOTFS_DIR}/etc/systemd/system/watchdog.service.d"
+cat > "${ROOTFS_DIR}/etc/systemd/system/watchdog.service.d/override.conf" << 'EOF'
+[Unit]
+After=systemd-modules-load.service
+EOF
+
 # ============================================================
 # WLAN-Monitor Script + Service Unit
 # ============================================================

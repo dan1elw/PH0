@@ -55,11 +55,9 @@ for cmd in ssh curl ping; do
         MISSING_DEPS="${MISSING_DEPS} ${cmd}"
     fi
 done
-# dig und jq sind optional
+# dig ist optional (lokal); jq wird auf dem Pi geprüft (immer installiert)
 HAS_DIG=false
-HAS_JQ=false
 command -v dig > /dev/null 2>&1 && HAS_DIG=true
-command -v jq > /dev/null 2>&1 && HAS_JQ=true
 
 if [ -n "${MISSING_DEPS}" ]; then
     echo "[FEHLER] Fehlende Abhängigkeiten:${MISSING_DEPS}"
@@ -119,16 +117,59 @@ run_remote_test() {
 # ============================================================
 if [ "${WAIT_MODE}" = true ]; then
     echo ""
-    echo "[INFO] Warte bis ${PI_HOST} erreichbar ist..."
-    echo "       (First Boot mit Pi-hole Installation kann 5-10 Minuten dauern)"
+    echo "[INFO] Warte bis ${PI_HOST} bereit ist..."
+    echo "       (First Boot mit Pi-hole Installation kann 15-20 Minuten dauern)"
     echo "       Abbruch mit Ctrl+C"
     echo ""
-    for i in $(seq 1 120); do
-        if ping -c 1 -W 2 "${PI_HOST}" > /dev/null 2>&1; then
-            echo "[INFO] Pi antwortet auf Ping nach ${i}x2 Sekunden."
-            # Warte noch etwas damit alle Services hochkommen
-            echo "[INFO] Warte weitere 30 Sekunden auf Service-Start..."
-            sleep 30
+
+    # Einzige Abbruchbedingung: Ping + SSH erreichbar UND first-boot.service deaktiviert.
+    # Das deckt alle Zustände ab:
+    #   • Pi noch am Booten           → Ping schlägt fehl        → weiter warten
+    #   • First Boot läuft            → first-boot.service=enabled → weiter warten
+    #   • Pi rebooted nach First Boot → Ping schlägt fehl        → weiter warten
+    #   • Pi nach Neustart bereit     → first-boot.service=disabled → fertig
+    READY=false
+    for i in $(seq 1 180); do
+        if ! ping -c 1 -W 2 "${PI_HOST}" > /dev/null 2>&1; then
+            printf "."
+            sleep 10
+            continue
+        fi
+
+        BOOT_STATUS=$(ssh ${SSH_OPTS} "${PI_USER}@${PI_HOST}" \
+            "systemctl is-enabled first-boot.service 2>/dev/null; true" \
+            2>/dev/null || echo "ssh-failed")
+        [ -z "${BOOT_STATUS}" ] && BOOT_STATUS="not-found"
+
+        case "${BOOT_STATUS}" in
+            disabled|not-found)
+                echo ""
+                echo "[INFO] Pi bereit nach $((i * 10))s (first-boot: ${BOOT_STATUS})."
+                READY=true
+                break
+                ;;
+            enabled)
+                if [ $(( i % 6 )) -eq 0 ]; then
+                    echo ""
+                    printf "[INFO] First Boot läuft noch (%ds)..." "$((i * 10))"
+                fi
+                ;;
+        esac
+        printf "."
+        sleep 10
+    done
+
+    if [ "${READY}" = false ]; then
+        echo ""
+        echo "[FEHLER] Pi nach 30 Minuten nicht bereit. Abbruch."
+        exit 1
+    fi
+
+    echo "[INFO] Warte auf pihole-FTL (Web UI + DNS)..."
+    for i in $(seq 1 60); do
+        if curl -s -o /dev/null -w "%{http_code}" --connect-timeout 3 \
+            "http://${PI_HOST}/admin/" 2>/dev/null | grep -qE "200|302|301"; then
+            echo "[INFO] Pi-hole bereit nach weiteren $((i * 2))s."
             break
         fi
         printf "."
@@ -193,6 +234,17 @@ else
     test_skip "DNS-Auflösung (google.com)" "dig nicht installiert"
 fi
 
+if [ "${HAS_DIG}" = true ]; then
+    result=$(dig @"${PI_HOST}" doubleclick.net A +short +time=5 +tries=1 2>/dev/null || echo "")
+    if echo "${result}" | grep -q "^0\.0\.0\.0$"; then
+        test_pass "DNS-Blocking aktiv (doubleclick.net → 0.0.0.0)"
+    else
+        test_fail "DNS-Blocking inaktiv (doubleclick.net → ${result:-keine Antwort})"
+    fi
+else
+    test_skip "DNS-Blocking" "dig nicht installiert"
+fi
+
 # Pi-hole Web UI
 if curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 \
     "http://${PI_HOST}/admin/" 2>/dev/null | grep -qE "200|302|301"; then
@@ -201,15 +253,15 @@ else
     test_fail "Pi-hole Web UI erreichbar"
 fi
 
-# Pi-hole API
-if [ "${HAS_JQ}" = true ]; then
-    if curl -s --connect-timeout 5 "http://${PI_HOST}/api/info" 2>/dev/null | jq -e '.' > /dev/null 2>&1; then
+# Pi-hole API – jq läuft auf dem Pi via SSH
+if [ "${SSH_OK}" = true ]; then
+    if run_remote "curl -s --connect-timeout 5 http://localhost/api/info | jq -e '.' > /dev/null 2>&1 && echo ok" | grep -q "ok"; then
         test_pass "Pi-hole REST API"
     else
         test_fail "Pi-hole REST API"
     fi
 else
-    test_skip "Pi-hole REST API" "jq nicht installiert"
+    test_skip "Pi-hole REST API" "SSH nicht verfügbar"
 fi
 
 # ============================================================
@@ -228,8 +280,8 @@ else
     echo ""
     echo "--- Services ---"
 
-    for svc in pihole-FTL log2ram wlan-monitor watchdog nftables; do
-        result=$(run_remote "systemctl is-active ${svc} 2>/dev/null" || echo "inactive")
+    for svc in pihole-FTL log2ram wlan-monitor nftables; do
+        result=$(run_remote "systemctl is-active ${svc} 2>/dev/null")
         if echo "${result}" | grep -q "^active"; then
             test_pass "${svc} Service aktiv"
         else
@@ -238,11 +290,19 @@ else
     done
 
     # Health-Check Timer
-    result=$(run_remote "systemctl is-active health-check.timer 2>/dev/null" || echo "inactive")
+    result=$(run_remote "systemctl is-active health-check.timer 2>/dev/null")
     if echo "${result}" | grep -q "^active"; then
         test_pass "health-check.timer aktiv"
     else
         test_fail "health-check.timer aktiv (Status: ${result})"
+    fi
+
+    # Hardware-Watchdog (systemd RuntimeWatchdogSec)
+    result=$(run_remote "systemctl show --property=RuntimeWatchdogUSec 2>/dev/null" || echo "")
+    if echo "${result}" | grep -qv "=0$"; then
+        test_pass "Hardware-Watchdog aktiv (${result#*=})"
+    else
+        test_fail "Hardware-Watchdog inaktiv (RuntimeWatchdogUSec=0)"
     fi
 
     echo ""

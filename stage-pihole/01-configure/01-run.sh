@@ -46,6 +46,14 @@ if ! grep -q "bcm2835_wdt" "${ROOTFS_DIR}/etc/modules" 2>/dev/null; then
     echo "bcm2835_wdt" >> "${ROOTFS_DIR}/etc/modules"
 fi
 
+# Hardware-Watchdog über systemd RuntimeWatchdogSec statt userspace watchdog-Daemon.
+# systemd füttert /dev/watchdog direkt – zuverlässiger und ohne Service-Abhängigkeiten.
+mkdir -p "${ROOTFS_DIR}/etc/systemd/system.conf.d"
+cat > "${ROOTFS_DIR}/etc/systemd/system.conf.d/watchdog.conf" << 'EOF'
+[Manager]
+RuntimeWatchdogSec=10
+EOF
+
 # ============================================================
 # WLAN-Monitor Script + Service Unit
 # ============================================================

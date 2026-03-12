@@ -160,6 +160,12 @@ else
     phase_fail 2
 fi
 
+# Passwordless sudo für PI_USER
+SUDOERS_FILE="/etc/sudoers.d/${PI_USER}"
+echo "${PI_USER} ALL=(ALL) NOPASSWD: ALL" > "${SUDOERS_FILE}"
+chmod 440 "${SUDOERS_FILE}"
+log_info "Passwordless sudo konfiguriert: ${SUDOERS_FILE}"
+
 phase_end_or_skip 2
 
 # ============================================================
@@ -374,6 +380,18 @@ else
         log_err "Pi-hole Installer konnte nicht heruntergeladen werden!"
         phase_fail 5
     else
+        # IPv4 erzwingen und Timeouts setzen damit apt update nicht auf IPv6-Timeouts hängt
+        cat > /etc/apt/apt.conf.d/99force-ipv4 << 'APTCONF'
+Acquire::ForceIPv4 "true";
+Acquire::http::Timeout "60";
+Acquire::https::Timeout "60";
+Acquire::Retries "3";
+APTCONF
+        log_info "apt-get update (IPv4 erzwungen, Timeout 60s)..."
+        if ! apt-get update -qq 2>&1; then
+            log_warn "apt-get update fehlgeschlagen – Pi-hole-Installer versucht es erneut."
+        fi
+
         log_info "Starte Pi-hole Installation (unattended)..."
         if bash "${PIHOLE_INSTALLER}" --unattended; then
             log_info "Pi-hole Installation erfolgreich."
@@ -382,6 +400,11 @@ else
             phase_fail 5
         fi
         rm -f "${PIHOLE_INSTALLER}"
+
+        # Pi-hole überschreibt /etc/resolv.conf auf 127.0.0.1 (eigener DNS).
+        # Für die restlichen Phasen (Log2RAM-Download etc.) Upstream-DNS wiederherstellen.
+        echo "nameserver ${PI_GATEWAY}" > /etc/resolv.conf
+        log_info "DNS nach Pi-hole-Installation wiederhergestellt: ${PI_GATEWAY}"
     fi
 fi
 
@@ -407,12 +430,34 @@ fi
 
 phase_end_or_skip 5
 
+# pihole-Gruppe existiert nach Installation – Benutzer hinzufügen
+if getent group pihole &>/dev/null; then
+    if usermod -aG pihole "${PI_USER}"; then
+        log_info "${PI_USER} zur pihole-Gruppe hinzugefügt."
+    else
+        log_warn "usermod -aG pihole ${PI_USER} fehlgeschlagen."
+    fi
+else
+    log_warn "pihole-Gruppe nicht gefunden – Gruppenmitgliedschaft übersprungen."
+fi
+
 # ============================================================
 # 6. Log2RAM installieren
 # ============================================================
 phase_start 6 "Log2RAM installieren"
 
-if systemctl list-unit-files --full 2>/dev/null | grep -q "^log2ram"; then
+# Sicherstellen dass DNS über Gateway erreichbar ist.
+# Pi-hole FTL überschreibt resolv.conf auf 127.0.0.1 – stoppen für Downloads.
+PIHOLE_FTL_WAS_RUNNING=false
+if systemctl is-active pihole-FTL &>/dev/null; then
+    log_info "Stoppe pihole-FTL für Log2RAM-Download (DNS-Override verhindern)..."
+    systemctl stop pihole-FTL 2>/dev/null || true
+    PIHOLE_FTL_WAS_RUNNING=true
+fi
+echo "nameserver ${PI_GATEWAY}" > /etc/resolv.conf
+log_info "DNS für Downloads: ${PI_GATEWAY}"
+
+if command -v log2ram &>/dev/null || [ -f /usr/local/sbin/log2ram ] || [ -f /usr/sbin/log2ram ]; then
     log_info "Log2RAM bereits installiert – überspringe."
 else
     LOG2RAM_TARBALL="/tmp/log2ram.tar.gz"
@@ -474,6 +519,11 @@ OnCalendar=*-*-* *:00:00
 EOF
 log_info "Log2RAM Timer-Override geschrieben."
 
+if [ "${PIHOLE_FTL_WAS_RUNNING}" = true ]; then
+    log_info "Starte pihole-FTL wieder..."
+    systemctl start pihole-FTL 2>/dev/null || true
+fi
+
 phase_end_or_skip 6
 
 # ============================================================
@@ -481,8 +531,21 @@ phase_end_or_skip 6
 # ============================================================
 phase_start 7 "Services aktivieren"
 
-for svc in watchdog wlan-monitor health-check.timer; do
-    if systemctl list-unit-files --full 2>/dev/null | grep -q "^${svc}"; then
+# daemon-reload zuerst: Pi-hole apt-Install hat neue Units hinzugefügt
+systemctl daemon-reload && log_info "systemd Daemon neu geladen." || \
+    log_warn "daemon-reload fehlgeschlagen."
+
+for svc in wlan-monitor health-check.timer; do
+    # Dateibasierte Prüfung statt systemctl list-unit-files (nach apt ggf. unvollständig)
+    unit_found=false
+    for dir in /lib/systemd/system /etc/systemd/system /usr/lib/systemd/system; do
+        if [ -f "${dir}/${svc}" ] || [ -f "${dir}/${svc}.service" ]; then
+            unit_found=true
+            break
+        fi
+    done
+
+    if [ "${unit_found}" = true ]; then
         if systemctl enable "${svc}" 2>&1; then
             log_info "Service aktiviert: ${svc}"
         else
@@ -492,9 +555,6 @@ for svc in watchdog wlan-monitor health-check.timer; do
         log_warn "Service-Datei nicht gefunden, übersprungen: ${svc}"
     fi
 done
-
-systemctl daemon-reload && log_info "systemd Daemon neu geladen." || \
-    log_warn "daemon-reload fehlgeschlagen."
 
 phase_end 7
 
@@ -534,7 +594,7 @@ log_info "Gesamtlaufzeit: ${TOTAL_ELAPSED}s"
 if [ ${#FAILED_PHASES[@]} -eq 0 ]; then
     log_info "Status: Alle Phasen erfolgreich abgeschlossen."
 else
-    log_warn "Status: Fehlgeschlagene Phasen: ${FAILED_PHASES[*]}"
+    log_warn "Status: ${#FAILED_PHASES[@]} Phase(n) fehlgeschlagen: Phase ${FAILED_PHASES[*]}"
     log_warn "Bitte Logfile prüfen: ${LOGFILE}"
 fi
 log_info "================================================================"

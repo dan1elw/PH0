@@ -1,0 +1,15 @@
+# .shellcheckrc – Project-wide ShellCheck configuration
+# https://github.com/koalaman/shellcheck/wiki
+
+# Target shell dialect
+shell=bash
+
+# Enable optional checks
+enable=avoid-nullary-conditions
+enable=require-variable-braces
+
+# SC1091: Not following sourced files (secrets.env is dynamic)
+disable=SC1091
+
+# Allow external sources to be checked when available
+external-sources=true

@@ -1,0 +1,57 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Write(scripts/**)",
+      "Write(stage-pihole/**)",
+      "Write(docs/**)",
+      "Write(tests/**)",
+      "Write(.github/**)",
+      "Write(config)",
+      "Write(secrets.env.example)",
+      "Write(README.md)",
+      "Write(.shellcheckrc)",
+      "Write(.editorconfig)",
+      "Bash(shellcheck *)",
+      "Bash(shfmt *)",
+      "Bash(git add:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git branch:*)",
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)",
+      "Bash(git switch:*)",
+      "Bash(bats *)",
+      "Bash(cat *)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(wc *)",
+      "Bash(ls *)",
+      "Bash(mkdir *)",
+      "Bash(chmod *)"
+    ],
+    "deny": [
+      "Read(secrets.env)",
+      "Write(secrets.env)",
+      "Bash(rm -rf *)",
+      "Bash(sudo *)",
+      "Bash(docker *)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write(*.sh)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "file=$(echo '$TOOL_INPUT' | jq -r '.file_path // .path // empty'); if [ -n \"$file\" ] && [ -f \"$file\" ]; then echo '--- shellcheck ---'; shellcheck \"$file\" 2>&1 || true; echo '--- shfmt check ---'; shfmt -d -i 4 -ci \"$file\" 2>&1 || true; fi"
+          }
+        ]
+      }
+    ]
+  }
+}

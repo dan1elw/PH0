@@ -1,0 +1,65 @@
+# GitHub Actions Workflow: Shell Script Linting
+#
+# Runs shellcheck and shfmt on all .sh files.
+# Triggered on every push and PR.
+
+name: Shell Lint
+
+on:
+  push:
+    paths:
+      - '**/*.sh'
+      - '.shellcheckrc'
+      - '.github/workflows/lint-shell.yml'
+  pull_request:
+    paths:
+      - '**/*.sh'
+      - '.shellcheckrc'
+      - '.github/workflows/lint-shell.yml'
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          severity: warning
+          scandir: '.'
+          additional_files: ''
+
+  shfmt:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run shfmt
+        uses: mvdan/github-action-shfmt@master
+        with:
+          flags: -d -i 4 -ci
+
+  bats:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install bats-core
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats
+
+      - name: Run tests
+        run: |
+          if [ -f tests/run-tests.sh ]; then
+            chmod +x tests/run-tests.sh
+            ./tests/run-tests.sh
+          elif ls tests/*.bats 1>/dev/null 2>&1; then
+            bats tests/*.bats
+          else
+            echo "No tests found — skipping"
+          fi

@@ -119,21 +119,55 @@ run_remote_test() {
 # ============================================================
 if [ "${WAIT_MODE}" = true ]; then
     echo ""
-    echo "[INFO] Warte bis ${PI_HOST} erreichbar ist..."
-    echo "       (First Boot mit Pi-hole Installation kann 5-10 Minuten dauern)"
+    echo "[INFO] Warte bis ${PI_HOST} bereit ist..."
+    echo "       (First Boot mit Pi-hole Installation kann 15-20 Minuten dauern)"
     echo "       Abbruch mit Ctrl+C"
     echo ""
-    for i in $(seq 1 120); do
-        if ping -c 1 -W 2 "${PI_HOST}" > /dev/null 2>&1; then
-            echo "[INFO] Pi antwortet auf Ping nach ${i}x2 Sekunden."
-            # Warte noch etwas damit alle Services hochkommen
-            echo "[INFO] Warte weitere 30 Sekunden auf Service-Start..."
-            sleep 30
-            break
+
+    # Einzige Abbruchbedingung: Ping + SSH erreichbar UND first-boot.service deaktiviert.
+    # Das deckt alle Zustände ab:
+    #   • Pi noch am Booten           → Ping schlägt fehl        → weiter warten
+    #   • First Boot läuft            → first-boot.service=enabled → weiter warten
+    #   • Pi rebooted nach First Boot → Ping schlägt fehl        → weiter warten
+    #   • Pi nach Neustart bereit     → first-boot.service=disabled → fertig
+    READY=false
+    for i in $(seq 1 180); do
+        if ! ping -c 1 -W 2 "${PI_HOST}" > /dev/null 2>&1; then
+            printf "."
+            sleep 10
+            continue
         fi
+
+        BOOT_STATUS=$(ssh ${SSH_OPTS} "${PI_USER}@${PI_HOST}" \
+            "systemctl is-enabled first-boot.service 2>/dev/null || echo not-found" \
+            2>/dev/null || echo "ssh-failed")
+
+        case "${BOOT_STATUS}" in
+            disabled|not-found)
+                echo ""
+                echo "[INFO] Pi bereit nach $((i * 10))s (first-boot: ${BOOT_STATUS})."
+                READY=true
+                break
+                ;;
+            enabled)
+                if [ $(( i % 6 )) -eq 0 ]; then
+                    echo ""
+                    printf "[INFO] First Boot läuft noch (%ds)..." "$((i * 10))"
+                fi
+                ;;
+        esac
         printf "."
-        sleep 2
+        sleep 10
     done
+
+    if [ "${READY}" = false ]; then
+        echo ""
+        echo "[FEHLER] Pi nach 30 Minuten nicht bereit. Abbruch."
+        exit 1
+    fi
+
+    echo "[INFO] Warte weitere 10 Sekunden auf Service-Start..."
+    sleep 10
     echo ""
 fi
 

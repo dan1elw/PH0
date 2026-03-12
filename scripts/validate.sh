@@ -55,11 +55,9 @@ for cmd in ssh curl ping; do
         MISSING_DEPS="${MISSING_DEPS} ${cmd}"
     fi
 done
-# dig und jq sind optional
+# dig ist optional (lokal); jq wird auf dem Pi geprüft (immer installiert)
 HAS_DIG=false
-HAS_JQ=false
 command -v dig > /dev/null 2>&1 && HAS_DIG=true
-command -v jq > /dev/null 2>&1 && HAS_JQ=true
 
 if [ -n "${MISSING_DEPS}" ]; then
     echo "[FEHLER] Fehlende Abhängigkeiten:${MISSING_DEPS}"
@@ -235,15 +233,15 @@ else
     test_fail "Pi-hole Web UI erreichbar"
 fi
 
-# Pi-hole API
-if [ "${HAS_JQ}" = true ]; then
-    if curl -s --connect-timeout 5 "http://${PI_HOST}/api/info" 2>/dev/null | jq -e '.' > /dev/null 2>&1; then
+# Pi-hole API – jq läuft auf dem Pi via SSH
+if [ "${SSH_OK}" = true ]; then
+    if run_remote "curl -s --connect-timeout 5 http://localhost/api/info | jq -e '.' > /dev/null 2>&1 && echo ok" | grep -q "ok"; then
         test_pass "Pi-hole REST API"
     else
         test_fail "Pi-hole REST API"
     fi
 else
-    test_skip "Pi-hole REST API" "jq nicht installiert"
+    test_skip "Pi-hole REST API" "SSH nicht verfügbar"
 fi
 
 # ============================================================

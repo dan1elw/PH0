@@ -394,6 +394,11 @@ APTCONF
             phase_fail 5
         fi
         rm -f "${PIHOLE_INSTALLER}"
+
+        # Pi-hole überschreibt /etc/resolv.conf auf 127.0.0.1 (eigener DNS).
+        # Für die restlichen Phasen (Log2RAM-Download etc.) Upstream-DNS wiederherstellen.
+        echo "nameserver ${PI_GATEWAY}" > /etc/resolv.conf
+        log_info "DNS nach Pi-hole-Installation wiederhergestellt: ${PI_GATEWAY}"
     fi
 fi
 
@@ -424,7 +429,18 @@ phase_end_or_skip 5
 # ============================================================
 phase_start 6 "Log2RAM installieren"
 
-if systemctl list-unit-files --full 2>/dev/null | grep -q "^log2ram"; then
+# Sicherstellen dass DNS über Gateway erreichbar ist.
+# Pi-hole FTL überschreibt resolv.conf auf 127.0.0.1 – stoppen für Downloads.
+PIHOLE_FTL_WAS_RUNNING=false
+if systemctl is-active pihole-FTL &>/dev/null; then
+    log_info "Stoppe pihole-FTL für Log2RAM-Download (DNS-Override verhindern)..."
+    systemctl stop pihole-FTL 2>/dev/null || true
+    PIHOLE_FTL_WAS_RUNNING=true
+fi
+echo "nameserver ${PI_GATEWAY}" > /etc/resolv.conf
+log_info "DNS für Downloads: ${PI_GATEWAY}"
+
+if command -v log2ram &>/dev/null || [ -f /usr/local/sbin/log2ram ] || [ -f /usr/sbin/log2ram ]; then
     log_info "Log2RAM bereits installiert – überspringe."
 else
     LOG2RAM_TARBALL="/tmp/log2ram.tar.gz"
@@ -486,6 +502,11 @@ OnCalendar=*-*-* *:00:00
 EOF
 log_info "Log2RAM Timer-Override geschrieben."
 
+if [ "${PIHOLE_FTL_WAS_RUNNING}" = true ]; then
+    log_info "Starte pihole-FTL wieder..."
+    systemctl start pihole-FTL 2>/dev/null || true
+fi
+
 phase_end_or_skip 6
 
 # ============================================================
@@ -496,20 +517,40 @@ phase_start 7 "Services aktivieren"
 # Watchdog benötigt /var/log/watchdog
 mkdir -p /var/log/watchdog
 
+# daemon-reload zuerst: Pi-hole apt-Install hat neue Units hinzugefügt
+systemctl daemon-reload && log_info "systemd Daemon neu geladen." || \
+    log_warn "daemon-reload fehlgeschlagen."
+
 for svc in watchdog wlan-monitor health-check.timer; do
-    if systemctl list-unit-files --full 2>/dev/null | grep -q "^${svc}"; then
+    # Dateibasierte Prüfung statt systemctl list-unit-files (nach apt ggf. unvollständig)
+    unit_found=false
+    for dir in /lib/systemd/system /etc/systemd/system /usr/lib/systemd/system; do
+        if [ -f "${dir}/${svc}" ] || [ -f "${dir}/${svc}.service" ]; then
+            unit_found=true
+            break
+        fi
+    done
+
+    if [ "${unit_found}" = true ]; then
         if systemctl enable "${svc}" 2>&1; then
             log_info "Service aktiviert: ${svc}"
         else
             log_warn "Service konnte nicht aktiviert werden: ${svc}"
         fi
+
+        # watchdog.service hat WantedBy=default.target, aber auf Raspberry Pi OS ist
+        # default.target=graphical.target und bleibt inaktiv (kein Display-Manager).
+        # Daher zusätzlich in multi-user.target.wants einhängen.
+        if [ "${svc}" = "watchdog" ]; then
+            mkdir -p /etc/systemd/system/multi-user.target.wants
+            ln -sf /lib/systemd/system/watchdog.service \
+                /etc/systemd/system/multi-user.target.wants/watchdog.service 2>/dev/null || true
+            log_info "watchdog.service in multi-user.target.wants verknüpft."
+        fi
     else
         log_warn "Service-Datei nicht gefunden, übersprungen: ${svc}"
     fi
 done
-
-systemctl daemon-reload && log_info "systemd Daemon neu geladen." || \
-    log_warn "daemon-reload fehlgeschlagen."
 
 phase_end 7
 
@@ -549,7 +590,7 @@ log_info "Gesamtlaufzeit: ${TOTAL_ELAPSED}s"
 if [ ${#FAILED_PHASES[@]} -eq 0 ]; then
     log_info "Status: Alle Phasen erfolgreich abgeschlossen."
 else
-    log_warn "Status: Fehlgeschlagene Phasen: ${FAILED_PHASES[*]}"
+    log_warn "Status: ${#FAILED_PHASES[@]} Phase(n) fehlgeschlagen: Phase ${FAILED_PHASES[*]}"
     log_warn "Bitte Logfile prüfen: ${LOGFILE}"
 fi
 log_info "================================================================"

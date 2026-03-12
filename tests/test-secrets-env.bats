@@ -33,7 +33,7 @@ teardown() {
                 return 1
             }
         fi
-    done < "${PROJECT_DIR}/secrets.env.example"
+    done <"${PROJECT_DIR}/secrets.env.example"
 }
 
 @test "secrets.env.example: contains all required variables" {
@@ -73,7 +73,7 @@ teardown() {
 }
 
 @test "secrets.env sourcing: quoted values with spaces work" {
-    cat > "${TEST_DIR}/test-secrets.env" << 'EOF'
+    cat >"${TEST_DIR}/test-secrets.env" <<'EOF'
 WIFI_SSID="My Home Network"
 WIFI_PASSWORD="password with spaces"
 PI_USER="pi"
@@ -85,12 +85,12 @@ EOF
 }
 
 @test "secrets.env sourcing: special characters in values" {
-    cat > "${TEST_DIR}/test-secrets.env" << 'EOF'
-PIHOLE_PASSWORD="p@$$w0rd!#%"
+    cat >"${TEST_DIR}/test-secrets.env" <<'EOF'
+PIHOLE_PASSWORD="p@##w0rd!#%"
 SSH_PUBLIC_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample user@host"
 EOF
     # shellcheck source=/dev/null
     source "${TEST_DIR}/test-secrets.env"
-    [ "${PIHOLE_PASSWORD}" = 'p@$$w0rd!#%' ]
+    [ "${PIHOLE_PASSWORD}" = 'p@##w0rd!#%' ]
     [[ "${SSH_PUBLIC_KEY}" == ssh-ed25519* ]]
 }

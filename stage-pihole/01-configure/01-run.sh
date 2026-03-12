@@ -15,7 +15,7 @@ install -v -m 644 \
     "${ROOTFS_DIR}/etc/pihole/pihole.toml"
 
 # Ownership setzen (pihole User wurde in 00-install-packages erstellt)
-on_chroot << 'CHEOF'
+on_chroot <<'CHEOF'
 chown pihole:pihole /etc/pihole/pihole.toml
 CHEOF
 
@@ -28,7 +28,7 @@ install -v -m 644 \
 
 # journald: SystemMaxUse begrenzen (passend zu Log2RAM 50MB)
 mkdir -p "${ROOTFS_DIR}/etc/systemd/journald.conf.d"
-cat > "${ROOTFS_DIR}/etc/systemd/journald.conf.d/log2ram.conf" << 'EOF'
+cat >"${ROOTFS_DIR}/etc/systemd/journald.conf.d/log2ram.conf" <<'EOF'
 [Journal]
 SystemMaxUse=20M
 RuntimeMaxUse=20M
@@ -43,13 +43,13 @@ install -v -m 644 \
 
 # Watchdog Kernel-Modul beim Boot laden
 if ! grep -q "bcm2835_wdt" "${ROOTFS_DIR}/etc/modules" 2>/dev/null; then
-    echo "bcm2835_wdt" >> "${ROOTFS_DIR}/etc/modules"
+    echo "bcm2835_wdt" >>"${ROOTFS_DIR}/etc/modules"
 fi
 
 # Hardware-Watchdog über systemd RuntimeWatchdogSec statt userspace watchdog-Daemon.
 # systemd füttert /dev/watchdog direkt – zuverlässiger und ohne Service-Abhängigkeiten.
 mkdir -p "${ROOTFS_DIR}/etc/systemd/system.conf.d"
-cat > "${ROOTFS_DIR}/etc/systemd/system.conf.d/watchdog.conf" << 'EOF'
+cat >"${ROOTFS_DIR}/etc/systemd/system.conf.d/watchdog.conf" <<'EOF'
 [Manager]
 RuntimeWatchdogSec=10
 EOF
@@ -89,7 +89,7 @@ if [ -f "${CONFIGTXT}" ]; then
     if grep -q "^country=" "${CONFIGTXT}"; then
         sed -i "s/^country=.*/country=DE/" "${CONFIGTXT}"
     else
-        printf "\n# WiFi Country Code\ncountry=DE\n" >> "${CONFIGTXT}"
+        printf "\n# WiFi Country Code\ncountry=DE\n" >>"${CONFIGTXT}"
     fi
     echo "country=DE in config.txt gesetzt."
 else
@@ -100,7 +100,7 @@ fi
 # NetworkManager: DNS-Management deaktivieren (Pi-hole übernimmt)
 # ============================================================
 mkdir -p "${ROOTFS_DIR}/etc/NetworkManager/conf.d"
-cat > "${ROOTFS_DIR}/etc/NetworkManager/conf.d/99-pihole.conf" << 'EOF'
+cat >"${ROOTFS_DIR}/etc/NetworkManager/conf.d/99-pihole.conf" <<'EOF'
 [main]
 dns=none
 EOF
@@ -110,7 +110,7 @@ EOF
 # pihole-FTL.service beim First Boot installiert wird)
 # ============================================================
 mkdir -p "${ROOTFS_DIR}/etc/systemd/system/pihole-FTL.service.d"
-cat > "${ROOTFS_DIR}/etc/systemd/system/pihole-FTL.service.d/override.conf" << 'EOF'
+cat >"${ROOTFS_DIR}/etc/systemd/system/pihole-FTL.service.d/override.conf" <<'EOF'
 [Service]
 Restart=on-failure
 RestartSec=5

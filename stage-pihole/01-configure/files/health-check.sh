@@ -27,7 +27,7 @@ timestamp=$(date -Iseconds)
 # ============================================================
 # 1. DNS-Auflösung testen
 # ============================================================
-if dig @127.0.0.1 google.com +short +time=5 +tries=1 > /dev/null 2>&1; then
+if dig @127.0.0.1 google.com +short +time=5 +tries=1 >/dev/null 2>&1; then
     dns_status="OK"
 else
     dns_status="FAIL"
@@ -37,7 +37,7 @@ else
     if systemctl is-active --quiet pihole-FTL; then
         log_warn "FTL läuft, aber DNS schlägt fehl. Prüfe Upstream-DNS..."
         # Teste Upstream direkt
-        if ! dig @1.1.1.1 google.com +short +time=5 +tries=1 > /dev/null 2>&1; then
+        if ! dig @1.1.1.1 google.com +short +time=5 +tries=1 >/dev/null 2>&1; then
             log_err "Upstream-DNS (1.1.1.1) ebenfalls nicht erreichbar – Netzwerkproblem!"
         fi
     else
@@ -127,7 +127,7 @@ else
 fi
 
 # Persistentes Log (für Langzeit-Monitoring)
-echo "${timestamp} | ${summary}" >> "${HEALTH_LOG}"
+echo "${timestamp} | ${summary}" >>"${HEALTH_LOG}"
 
 # Optional: Webhook bei Fehler auslösen
 # Auskommentieren und URL anpassen wenn gewünscht:

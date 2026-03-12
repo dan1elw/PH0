@@ -12,7 +12,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "${SCRIPT_DIR}")"
 PI_GEN_DIR="${PROJECT_DIR}/pi-gen"
 PI_GEN_REPO="https://github.com/RPi-Distro/pi-gen.git"
-PI_GEN_BRANCH="bookworm"  # bookworm-Branch für Bookworm 32-bit (armhf) Images
+PI_GEN_BRANCH="bookworm" # bookworm-Branch für Bookworm 32-bit (armhf) Images
 
 USE_DOCKER=true
 CLEAN_BUILD=false
@@ -28,7 +28,7 @@ while [[ $# -gt 0 ]]; do
             CLEAN_BUILD=true
             shift
             ;;
-        -h|--help)
+        -h | --help)
             echo "Verwendung: $0 [--native] [--clean]"
             echo "  --native   Build ohne Docker (nur Debian/Ubuntu)"
             echo "  --clean    Sauberer Build (löscht vorherige Artefakte)"
@@ -46,7 +46,7 @@ done
 # ============================================================
 BUILD_START=$(date +%s)
 CURRENT_STEP=0
-TOTAL_STEPS=4   # wird auf 5 erhöht wenn --clean
+TOTAL_STEPS=4 # wird auf 5 erhöht wenn --clean
 
 [ "${CLEAN_BUILD}" = true ] && TOTAL_STEPS=5
 
@@ -55,21 +55,21 @@ show_step() {
     local label="$2"
     CURRENT_STEP="${step}"
 
-    local pct=$(( step * 100 / TOTAL_STEPS ))
-    local filled=$(( step * 24 / TOTAL_STEPS ))
-    local empty=$(( 24 - filled ))
+    local pct=$((step * 100 / TOTAL_STEPS))
+    local filled=$((step * 24 / TOTAL_STEPS))
+    local empty=$((24 - filled))
     local bar=""
-    for ((i=0; i<filled; i++)); do bar+="█"; done
-    for ((i=0; i<empty; i++)); do bar+="░"; done
+    for ((i = 0; i < filled; i++)); do bar+="█"; done
+    for ((i = 0; i < empty; i++)); do bar+="░"; done
 
-    local elapsed=$(( $(date +%s) - BUILD_START ))
+    local elapsed=$(($(date +%s) - BUILD_START))
     local eta_str=""
     if [ "${step}" -gt 0 ] && [ "${pct}" -lt 100 ]; then
-        local total_est=$(( elapsed * TOTAL_STEPS / step ))
-        local remaining=$(( total_est - elapsed ))
+        local total_est=$((elapsed * TOTAL_STEPS / step))
+        local remaining=$((total_est - elapsed))
         if [ "${remaining}" -gt 0 ]; then
-            local rem_m=$(( remaining / 60 ))
-            local rem_s=$(( remaining % 60 ))
+            local rem_m=$((remaining / 60))
+            local rem_s=$((remaining % 60))
             eta_str="  |  ETA: ${rem_m}m ${rem_s}s"
         fi
     fi
@@ -152,7 +152,7 @@ cd "${PI_GEN_DIR}"
 
 BUILD_MODE="Docker"
 [ "${USE_DOCKER}" = false ] && BUILD_MODE="Nativ"
-show_step $(( CURRENT_STEP + 1 )) "pi-gen Build starten (${BUILD_MODE}) – das dauert 30–60 Minuten..."
+show_step $((CURRENT_STEP + 1)) "pi-gen Build starten (${BUILD_MODE}) – das dauert 30–60 Minuten..."
 
 BUILD_EXIT=0
 if [ "${USE_DOCKER}" = true ]; then
@@ -180,9 +180,9 @@ fi
 # 6. Ergebnis prüfen
 # ============================================================
 BUILD_END=$(date +%s)
-BUILD_TOTAL=$(( BUILD_END - BUILD_START ))
-BUILD_M=$(( BUILD_TOTAL / 60 ))
-BUILD_S=$(( BUILD_TOTAL % 60 ))
+BUILD_TOTAL=$((BUILD_END - BUILD_START))
+BUILD_M=$((BUILD_TOTAL / 60))
+BUILD_S=$((BUILD_TOTAL % 60))
 
 show_step "${TOTAL_STEPS}" "Ergebnis prüfen und kopieren..."
 if [ "${BUILD_EXIT}" -ne 0 ]; then

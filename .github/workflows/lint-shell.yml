@@ -5,15 +5,22 @@
 
 name: Shell Lint
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   push:
+    branches:
+      - main
     paths:
       - '**/*.sh'
+      - '**/*.bats'
       - '.shellcheckrc'
       - '.github/workflows/lint-shell.yml'
   pull_request:
     paths:
       - '**/*.sh'
+      - '**/*.bats'
       - '.shellcheckrc'
       - '.github/workflows/lint-shell.yml'
 
@@ -25,11 +32,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run ShellCheck
-        uses: ludeeus/action-shellcheck@master
+        uses: ludeeus/action-shellcheck@2.0.0
         with:
           severity: warning
           scandir: '.'
           additional_files: ''
+          ignore_paths: pi-gen
 
   shfmt:
     runs-on: ubuntu-latest
@@ -37,10 +45,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install shfmt
+        run: |
+          go install mvdan.cc/sh/v3/cmd/shfmt@latest
+          echo "$HOME/go/bin" >> "$GITHUB_PATH"
+
       - name: Run shfmt
-        uses: mvdan/github-action-shfmt@master
-        with:
-          flags: -d -i 4 -ci
+        run: shfmt -d -i 4 -ci $(find . -name '*.sh' -not -path './.git/*' -not -path './pi-gen/*')
 
   bats:
     runs-on: ubuntu-latest

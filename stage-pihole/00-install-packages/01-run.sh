@@ -11,7 +11,7 @@
 # ============================================================
 # pihole User und Verzeichnis vorbereiten
 # ============================================================
-on_chroot << 'CHEOF'
+on_chroot <<'CHEOF'
 # pihole Gruppe und User erstellen
 if ! getent group pihole > /dev/null 2>&1; then
     groupadd pihole

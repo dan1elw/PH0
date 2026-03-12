@@ -51,13 +51,13 @@ SSH_OPTS="-o ConnectTimeout=5 -o BatchMode=yes -o StrictHostKeyChecking=no -o Us
 # ============================================================
 MISSING_DEPS=""
 for cmd in ssh curl ping; do
-    if ! command -v "${cmd}" > /dev/null 2>&1; then
+    if ! command -v "${cmd}" >/dev/null 2>&1; then
         MISSING_DEPS="${MISSING_DEPS} ${cmd}"
     fi
 done
 # dig ist optional (lokal); jq wird auf dem Pi geprüft (immer installiert)
 HAS_DIG=false
-command -v dig > /dev/null 2>&1 && HAS_DIG=true
+command -v dig >/dev/null 2>&1 && HAS_DIG=true
 
 if [ -n "${MISSING_DEPS}" ]; then
     echo "[FEHLER] Fehlende Abhängigkeiten:${MISSING_DEPS}"
@@ -89,7 +89,7 @@ test_skip() {
 run_test() {
     local name="$1"
     shift
-    if "$@" > /dev/null 2>&1; then
+    if "$@" >/dev/null 2>&1; then
         test_pass "${name}"
     else
         test_fail "${name}"
@@ -130,7 +130,7 @@ if [ "${WAIT_MODE}" = true ]; then
     #   • Pi nach Neustart bereit     → first-boot.service=disabled → fertig
     READY=false
     for i in $(seq 1 180); do
-        if ! ping -c 1 -W 2 "${PI_HOST}" > /dev/null 2>&1; then
+        if ! ping -c 1 -W 2 "${PI_HOST}" >/dev/null 2>&1; then
             printf "."
             sleep 10
             continue
@@ -142,14 +142,14 @@ if [ "${WAIT_MODE}" = true ]; then
         [ -z "${BOOT_STATUS}" ] && BOOT_STATUS="not-found"
 
         case "${BOOT_STATUS}" in
-            disabled|not-found)
+            disabled | not-found)
                 echo ""
                 echo "[INFO] Pi bereit nach $((i * 10))s (first-boot: ${BOOT_STATUS})."
                 READY=true
                 break
                 ;;
             enabled)
-                if [ $(( i % 6 )) -eq 0 ]; then
+                if [ $((i % 6)) -eq 0 ]; then
                     echo ""
                     printf "[INFO] First Boot läuft noch (%ds)..." "$((i * 10))"
                 fi
@@ -192,7 +192,7 @@ echo "--- Netzwerk ---"
 
 # Ping ist Voraussetzung für alle weiteren Tests
 PING_OK=false
-if ping -c 1 -W 5 "${PI_HOST}" > /dev/null 2>&1; then
+if ping -c 1 -W 5 "${PI_HOST}" >/dev/null 2>&1; then
     test_pass "Ping erreichbar"
     PING_OK=true
 else
@@ -221,7 +221,7 @@ fi
 
 # Prüfe ob SSH funktioniert, bevor wir Remote-Tests machen
 SSH_OK=false
-if ssh ${SSH_OPTS} "${PI_USER}@${PI_HOST}" "echo ok" > /dev/null 2>&1; then
+if ssh ${SSH_OPTS} "${PI_USER}@${PI_HOST}" "echo ok" >/dev/null 2>&1; then
     test_pass "SSH-Verbindung"
     SSH_OK=true
 else

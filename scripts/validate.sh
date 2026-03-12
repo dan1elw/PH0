@@ -137,8 +137,9 @@ if [ "${WAIT_MODE}" = true ]; then
         fi
 
         BOOT_STATUS=$(ssh ${SSH_OPTS} "${PI_USER}@${PI_HOST}" \
-            "systemctl is-enabled first-boot.service 2>/dev/null || echo not-found" \
+            "systemctl is-enabled first-boot.service 2>/dev/null; true" \
             2>/dev/null || echo "ssh-failed")
+        [ -z "${BOOT_STATUS}" ] && BOOT_STATUS="not-found"
 
         case "${BOOT_STATUS}" in
             disabled|not-found)
@@ -164,8 +165,16 @@ if [ "${WAIT_MODE}" = true ]; then
         exit 1
     fi
 
-    echo "[INFO] Warte weitere 10 Sekunden auf Service-Start..."
-    sleep 10
+    echo "[INFO] Warte auf pihole-FTL (Web UI + DNS)..."
+    for i in $(seq 1 60); do
+        if curl -s -o /dev/null -w "%{http_code}" --connect-timeout 3 \
+            "http://${PI_HOST}/admin/" 2>/dev/null | grep -qE "200|302|301"; then
+            echo "[INFO] Pi-hole bereit nach weiteren $((i * 2))s."
+            break
+        fi
+        printf "."
+        sleep 2
+    done
     echo ""
 fi
 

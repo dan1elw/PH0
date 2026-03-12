@@ -62,7 +62,6 @@ Desktop.ini
 .project
 .settings/
 *.code-workspace
-.claude/
 
 # ============================================================
 # Logs & temporäre Dateien
@@ -80,3 +79,8 @@ tmp/
 *.tar.xz
 *.tar.bz2
 *.zip
+
+# ============================================================
+# Weitere Ausschlüsse (je nach Bedarf anpassen)
+# ============================================================
+dev/

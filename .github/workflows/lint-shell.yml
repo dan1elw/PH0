@@ -12,11 +12,13 @@ on:
   push:
     paths:
       - '**/*.sh'
+      - '**/*.bats'
       - '.shellcheckrc'
       - '.github/workflows/lint-shell.yml'
   pull_request:
     paths:
       - '**/*.sh'
+      - '**/*.bats'
       - '.shellcheckrc'
       - '.github/workflows/lint-shell.yml'
 

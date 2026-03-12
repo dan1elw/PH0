@@ -47,8 +47,8 @@ setup() {
         # prerun.sh is special
         [ "$(basename "${script}")" = "prerun.sh" ] && continue
         # Check that file operations reference ROOTFS_DIR
-        if grep -nE '^\s*(install|cp|mkdir|cat\s*>|echo\s.*>)\s+/' "${script}" | \
-           grep -v 'ROOTFS_DIR' | grep -v '^#' | grep -v 'STAGE_DIR'; then
+        if grep -nE '^\s*(install|cp|mkdir|cat\s*>|echo\s.*>)\s+/' "${script}" |
+            grep -v 'ROOTFS_DIR' | grep -v '^#' | grep -v 'STAGE_DIR'; then
             echo "Direct path without ROOTFS_DIR in: ${script}"
             # This is a warning, not necessarily a failure for all cases
         fi
@@ -71,8 +71,8 @@ setup() {
     while IFS= read -r script; do
         [[ "${script}" == */files/* ]] && continue
         # Check install commands for config files
-        if grep 'install.*\.conf\|install.*\.toml\|install.*\.service\|install.*\.timer' "${script}" | \
-           grep -v 'm 644' | grep -v 'm 755' | grep -v '^#'; then
+        if grep 'install.*\.conf\|install.*\.toml\|install.*\.service\|install.*\.timer' "${script}" |
+            grep -v 'm 644' | grep -v 'm 755' | grep -v '^#'; then
             echo "Config deployed without explicit mode in: ${script}"
             return 1
         fi

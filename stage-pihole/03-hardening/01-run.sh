@@ -23,7 +23,7 @@ sed -i 's/^#\?MaxAuthTries.*/MaxAuthTries 3/' \
 # ============================================================
 # Firewall (nftables)
 # ============================================================
-cat > "${ROOTFS_DIR}/etc/nftables.conf" << 'EOF'
+cat >"${ROOTFS_DIR}/etc/nftables.conf" <<'EOF'
 #!/usr/sbin/nft -f
 # Pi-hole Firewall – nftables Konfiguration
 
@@ -66,7 +66,7 @@ ln -sf /lib/systemd/system/nftables.service \
 # ============================================================
 # Prüfen ob Einträge nicht schon existieren
 if ! grep -q "^tmpfs.*/tmp " "${ROOTFS_DIR}/etc/fstab" 2>/dev/null; then
-    cat >> "${ROOTFS_DIR}/etc/fstab" << 'EOF'
+    cat >>"${ROOTFS_DIR}/etc/fstab" <<'EOF'
 
 # tmpfs – Temporäre Dateien ins RAM (SD-Karten-Schutz)
 tmpfs    /tmp        tmpfs    defaults,noatime,nosuid,nodev,size=30M    0 0
@@ -84,7 +84,7 @@ rm -f "${ROOTFS_DIR}/var/swap" 2>/dev/null || true
 # ============================================================
 # Kernel-Parameter für SD-Karten-Schutz
 # ============================================================
-cat > "${ROOTFS_DIR}/etc/sysctl.d/99-sdcard-protect.conf" << 'EOF'
+cat >"${ROOTFS_DIR}/etc/sysctl.d/99-sdcard-protect.conf" <<'EOF'
 vm.dirty_writeback_centisecs = 6000
 vm.dirty_ratio = 60
 vm.dirty_background_ratio = 40
@@ -100,7 +100,7 @@ rm -f "${ROOTFS_DIR}/etc/systemd/system/multi-user.target.wants/avahi-daemon.ser
 rm -f "${ROOTFS_DIR}/etc/systemd/system/multi-user.target.wants/triggerhappy.service" 2>/dev/null || true
 
 # Bluetooth Kernel-Module blockieren
-cat > "${ROOTFS_DIR}/etc/modprobe.d/disable-bluetooth.conf" << 'EOF'
+cat >"${ROOTFS_DIR}/etc/modprobe.d/disable-bluetooth.conf" <<'EOF'
 blacklist btbcm
 blacklist hci_uart
 EOF
@@ -116,7 +116,7 @@ fi
 
 if [ -f "${BOOT_CONFIG}" ]; then
     if ! grep -q "disable-bt" "${BOOT_CONFIG}" 2>/dev/null; then
-        cat >> "${BOOT_CONFIG}" << 'EOF'
+        cat >>"${BOOT_CONFIG}" <<'EOF'
 
 # Pi-hole Optimierungen
 dtoverlay=disable-bt

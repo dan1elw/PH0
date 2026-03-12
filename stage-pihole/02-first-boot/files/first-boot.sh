@@ -42,12 +42,12 @@ phase_start() {
 }
 
 phase_end() {
-    local elapsed=$(( $(date +%s) - PHASE_START ))
+    local elapsed=$(($(date +%s) - PHASE_START))
     log_info "Phase $1 abgeschlossen (${elapsed}s)"
 }
 
 phase_fail() {
-    local elapsed=$(( $(date +%s) - PHASE_START ))
+    local elapsed=$(($(date +%s) - PHASE_START))
     log_err "Phase $1 fehlgeschlagen (${elapsed}s)"
     FAILED_PHASES+=("$1")
 }
@@ -111,13 +111,13 @@ if hostnamectl set-hostname "${PI_HOSTNAME}"; then
     log_info "Hostname gesetzt: ${PI_HOSTNAME}"
 else
     log_warn "hostnamectl fehlgeschlagen – schreibe direkt nach /etc/hostname"
-    echo "${PI_HOSTNAME}" > /etc/hostname || log_err "Hostname konnte nicht gesetzt werden!"
+    echo "${PI_HOSTNAME}" >/etc/hostname || log_err "Hostname konnte nicht gesetzt werden!"
 fi
 
 if grep -q "127.0.1.1" /etc/hosts; then
     sed -i "s/127.0.1.1.*/127.0.1.1\t${PI_HOSTNAME}/" /etc/hosts
 else
-    printf "127.0.1.1\t%s\n" "${PI_HOSTNAME}" >> /etc/hosts
+    printf "127.0.1.1\t%s\n" "${PI_HOSTNAME}" >>/etc/hosts
 fi
 log_info "/etc/hosts aktualisiert"
 
@@ -133,8 +133,8 @@ if id -u "${PI_USER}" &>/dev/null; then
     log_info "Benutzer ${PI_USER} existiert bereits."
 elif id -u "${FIRST_USER_NAME}" &>/dev/null && [ "${PI_USER}" != "${FIRST_USER_NAME}" ]; then
     log_info "Benenne Default-Benutzer '${FIRST_USER_NAME}' um zu '${PI_USER}'..."
-    if usermod -l "${PI_USER}" -d "/home/${PI_USER}" -m "${FIRST_USER_NAME}" && \
-       groupmod -n "${PI_USER}" "${FIRST_USER_NAME}"; then
+    if usermod -l "${PI_USER}" -d "/home/${PI_USER}" -m "${FIRST_USER_NAME}" &&
+        groupmod -n "${PI_USER}" "${FIRST_USER_NAME}"; then
         log_info "Umbenennung erfolgreich."
     else
         log_warn "Umbenennung fehlgeschlagen – lege neuen Benutzer an."
@@ -162,7 +162,7 @@ fi
 
 # Passwordless sudo für PI_USER
 SUDOERS_FILE="/etc/sudoers.d/${PI_USER}"
-echo "${PI_USER} ALL=(ALL) NOPASSWD: ALL" > "${SUDOERS_FILE}"
+echo "${PI_USER} ALL=(ALL) NOPASSWD: ALL" >"${SUDOERS_FILE}"
 chmod 440 "${SUDOERS_FILE}"
 log_info "Passwordless sudo konfiguriert: ${SUDOERS_FILE}"
 
@@ -183,7 +183,7 @@ log_info "rfkill Status: $(rfkill list 2>/dev/null | tr '\n' ' ' || echo 'unbeka
 # NM's wpa_supplicant markiert wlan0 dann als "unavailable".
 # Fix: iw reg set → nmcli radio wifi off/on → wpa_supplicant startet neu mit korrektem Domain.
 log_info "Setze Regulatory domain: ${WIFI_COUNTRY}"
-echo "REGDOMAIN=${WIFI_COUNTRY}" > /etc/default/crda 2>/dev/null || true
+echo "REGDOMAIN=${WIFI_COUNTRY}" >/etc/default/crda 2>/dev/null || true
 iw reg set "${WIFI_COUNTRY}" 2>/dev/null || true
 
 log_info "WiFi-Radio neu initialisieren (nmcli radio off/on)..."
@@ -201,19 +201,19 @@ WLAN_READY=false
 for i in $(seq 1 60); do
     STATE=$(nmcli -t -f DEVICE,STATE device status 2>/dev/null | grep "^wlan0:" | cut -d: -f2 || echo "")
     case "${STATE}" in
-        disconnected|connected)
+        disconnected | connected)
             log_info "wlan0 nach ${i}s bereit (Status: ${STATE})."
             WLAN_READY=true
             break
             ;;
         unmanaged)
-            if [ $(( i % 15 )) -eq 0 ]; then
+            if [ $((i % 15)) -eq 0 ]; then
                 log_info "wlan0 unmanaged (${i}/60s) – erzwinge NM-Verwaltung..."
                 nmcli device set wlan0 managed yes 2>/dev/null || true
             fi
             ;;
         unavailable)
-            if [ $(( i % 15 )) -eq 0 ]; then
+            if [ $((i % 15)) -eq 0 ]; then
                 log_info "wlan0 noch unavailable (${i}/60s)."
             fi
             ;;
@@ -239,18 +239,18 @@ nmcli connection delete "pihole-wifi" 2>/dev/null || true
 
 WIFI_CONNECTED=false
 if nmcli connection add \
-        type wifi \
-        con-name "pihole-wifi" \
-        ifname wlan0 \
-        ssid "${WIFI_SSID}" \
-        wifi-sec.key-mgmt wpa-psk \
-        wifi-sec.psk "${WIFI_PASSWORD}" \
-        ipv4.method manual \
-        ipv4.addresses "${PI_IP}/${PI_PREFIX}" \
-        ipv4.gateway "${PI_GATEWAY}" \
-        ipv4.dns "${PI_GATEWAY}" \
-        wifi.cloned-mac-address stable \
-        connection.autoconnect yes 2>&1; then
+    type wifi \
+    con-name "pihole-wifi" \
+    ifname wlan0 \
+    ssid "${WIFI_SSID}" \
+    wifi-sec.key-mgmt wpa-psk \
+    wifi-sec.psk "${WIFI_PASSWORD}" \
+    ipv4.method manual \
+    ipv4.addresses "${PI_IP}/${PI_PREFIX}" \
+    ipv4.gateway "${PI_GATEWAY}" \
+    ipv4.dns "${PI_GATEWAY}" \
+    wifi.cloned-mac-address stable \
+    connection.autoconnect yes 2>&1; then
     log_info "Verbindungsprofil erstellt."
 
     for attempt in $(seq 1 3); do
@@ -275,7 +275,7 @@ fi
 if [ "${WIFI_CONNECTED}" = true ]; then
     # DNS manuell setzen: NM schreibt resolv.conf nicht wenn dns=none konfiguriert ist
     # (dns=none ist nötig damit Pi-hole DNS übernimmt – aber vor Installation brauchen wir DNS)
-    echo "nameserver ${PI_GATEWAY}" > /etc/resolv.conf
+    echo "nameserver ${PI_GATEWAY}" >/etc/resolv.conf
     log_info "DNS gesetzt: nameserver ${PI_GATEWAY}"
 
     # Warten bis IP-Adresse auf wlan0 sichtbar ist
@@ -310,7 +310,7 @@ if [ "${WIFI_CONNECTED}" = false ]; then
     log_err "Kein Internet erreichbar (WiFi nicht verbunden) – Downloads werden fehlschlagen."
 else
     for i in $(seq 1 5); do
-        if curl -sSf --max-time 10 https://install.pi-hole.net > /dev/null 2>&1; then
+        if curl -sSf --max-time 10 https://install.pi-hole.net >/dev/null 2>&1; then
             log_info "Internet erreichbar (Versuch ${i})."
             NET_OK=true
             break
@@ -338,11 +338,11 @@ if [ ! -d "${USER_HOME}" ]; then
 fi
 
 SSH_OK=true
-mkdir -p "${SSH_DIR}"                                       || SSH_OK=false
-echo "${SSH_PUBLIC_KEY}" > "${SSH_DIR}/authorized_keys"    || SSH_OK=false
-chmod 700 "${SSH_DIR}"                                      || SSH_OK=false
-chmod 600 "${SSH_DIR}/authorized_keys"                     || SSH_OK=false
-chown -R "${PI_USER}:${PI_USER}" "${SSH_DIR}"              || SSH_OK=false
+mkdir -p "${SSH_DIR}" || SSH_OK=false
+echo "${SSH_PUBLIC_KEY}" >"${SSH_DIR}/authorized_keys" || SSH_OK=false
+chmod 700 "${SSH_DIR}" || SSH_OK=false
+chmod 600 "${SSH_DIR}/authorized_keys" || SSH_OK=false
+chown -R "${PI_USER}:${PI_USER}" "${SSH_DIR}" || SSH_OK=false
 
 if [ "${SSH_OK}" = true ]; then
     KEY_COMMENT=$(echo "${SSH_PUBLIC_KEY}" | awk '{print $NF}' 2>/dev/null || echo "unbekannt")
@@ -381,7 +381,7 @@ else
         phase_fail 5
     else
         # IPv4 erzwingen und Timeouts setzen damit apt update nicht auf IPv6-Timeouts hängt
-        cat > /etc/apt/apt.conf.d/99force-ipv4 << 'APTCONF'
+        cat >/etc/apt/apt.conf.d/99force-ipv4 <<'APTCONF'
 Acquire::ForceIPv4 "true";
 Acquire::http::Timeout "60";
 Acquire::https::Timeout "60";
@@ -403,7 +403,7 @@ APTCONF
 
         # Pi-hole überschreibt /etc/resolv.conf auf 127.0.0.1 (eigener DNS).
         # Für die restlichen Phasen (Log2RAM-Download etc.) Upstream-DNS wiederherstellen.
-        echo "nameserver ${PI_GATEWAY}" > /etc/resolv.conf
+        echo "nameserver ${PI_GATEWAY}" >/etc/resolv.conf
         log_info "DNS nach Pi-hole-Installation wiederhergestellt: ${PI_GATEWAY}"
     fi
 fi
@@ -411,8 +411,8 @@ fi
 if command -v pihole &>/dev/null; then
     log_info "Setze Pi-hole Admin-Passwort..."
     # pihole setpassword ist v6-Syntax; -a -p als Fallback für v5
-    if pihole setpassword "${PIHOLE_PASSWORD}" 2>/dev/null || \
-       pihole -a -p "${PIHOLE_PASSWORD}" 2>/dev/null; then
+    if pihole setpassword "${PIHOLE_PASSWORD}" 2>/dev/null ||
+        pihole -a -p "${PIHOLE_PASSWORD}" 2>/dev/null; then
         log_info "Pi-hole Admin-Passwort gesetzt."
     else
         log_warn "Pi-hole Passwort konnte nicht gesetzt werden – bitte manuell setzen."
@@ -454,7 +454,7 @@ if systemctl is-active pihole-FTL &>/dev/null; then
     systemctl stop pihole-FTL 2>/dev/null || true
     PIHOLE_FTL_WAS_RUNNING=true
 fi
-echo "nameserver ${PI_GATEWAY}" > /etc/resolv.conf
+echo "nameserver ${PI_GATEWAY}" >/etc/resolv.conf
 log_info "DNS für Downloads: ${PI_GATEWAY}"
 
 if command -v log2ram &>/dev/null || [ -f /usr/local/sbin/log2ram ] || [ -f /usr/sbin/log2ram ]; then
@@ -467,8 +467,8 @@ else
     log_info "Lade Log2RAM herunter..."
     for attempt in $(seq 1 3); do
         if curl -sSL --max-time 120 \
-                https://github.com/azlux/log2ram/archive/refs/heads/master.tar.gz \
-                -o "${LOG2RAM_TARBALL}"; then
+            https://github.com/azlux/log2ram/archive/refs/heads/master.tar.gz \
+            -o "${LOG2RAM_TARBALL}"; then
             DOWNLOAD_OK=true
             log_info "Log2RAM heruntergeladen (Versuch ${attempt})."
             break
@@ -512,7 +512,7 @@ fi
 # Log2RAM Sync-Intervall auf stündlich setzen
 log_info "Setze Log2RAM Sync-Intervall auf stündlich..."
 mkdir -p /etc/systemd/system/log2ram-daily.timer.d
-cat > /etc/systemd/system/log2ram-daily.timer.d/override.conf << 'EOF'
+cat >/etc/systemd/system/log2ram-daily.timer.d/override.conf <<'EOF'
 [Timer]
 OnCalendar=
 OnCalendar=*-*-* *:00:00
@@ -532,7 +532,7 @@ phase_end_or_skip 6
 phase_start 7 "Services aktivieren"
 
 # daemon-reload zuerst: Pi-hole apt-Install hat neue Units hinzugefügt
-systemctl daemon-reload && log_info "systemd Daemon neu geladen." || \
+systemctl daemon-reload && log_info "systemd Daemon neu geladen." ||
     log_warn "daemon-reload fehlgeschlagen."
 
 for svc in wlan-monitor health-check.timer; do
@@ -587,7 +587,7 @@ fi
 # ============================================================
 # Zusammenfassung
 # ============================================================
-TOTAL_ELAPSED=$(( $(date +%s) - SCRIPT_START ))
+TOTAL_ELAPSED=$(($(date +%s) - SCRIPT_START))
 log_info "================================================================"
 log_info "=== First Boot Zusammenfassung ==="
 log_info "Gesamtlaufzeit: ${TOTAL_ELAPSED}s"

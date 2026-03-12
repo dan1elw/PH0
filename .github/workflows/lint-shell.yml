@@ -33,6 +33,7 @@ jobs:
           severity: warning
           scandir: '.'
           additional_files: ''
+          ignore_paths: pi-gen
 
   shfmt:
     runs-on: ubuntu-latest
@@ -46,7 +47,7 @@ jobs:
           echo "$HOME/go/bin" >> "$GITHUB_PATH"
 
       - name: Run shfmt
-        run: shfmt -d -i 4 -ci $(find . -name '*.sh' -not -path './.git/*')
+        run: shfmt -d -i 4 -ci $(find . -name '*.sh' -not -path './.git/*' -not -path './pi-gen/*')
 
   bats:
     runs-on: ubuntu-latest

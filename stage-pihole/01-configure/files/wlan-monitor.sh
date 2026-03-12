@@ -35,14 +35,14 @@ restart_interface() {
 
 while true; do
     # Prüfe ob Interface existiert
-    if ! ip link show "${INTERFACE}" > /dev/null 2>&1; then
+    if ! ip link show "${INTERFACE}" >/dev/null 2>&1; then
         log_err "Interface ${INTERFACE} nicht gefunden!"
         sleep "${CHECK_INTERVAL}"
         continue
     fi
 
     # Prüfe Verbindung via Ping zum Gateway
-    if ping -c 1 -W 5 -I "${INTERFACE}" "${GATEWAY}" > /dev/null 2>&1; then
+    if ping -c 1 -W 5 -I "${INTERFACE}" "${GATEWAY}" >/dev/null 2>&1; then
         # Verbindung OK
         if [ ${failure_count} -gt 0 ]; then
             log_info "WLAN-Verbindung wiederhergestellt nach ${failure_count} Fehlversuchen."
@@ -56,7 +56,7 @@ while true; do
             log_err "Maximale Fehlversuche erreicht. Starte System neu..."
             # Crash-Log schreiben bevor Neustart
             echo "$(date -Iseconds) WLAN-Monitor: Neustart nach ${MAX_FAILURES} Fehlversuchen" \
-                >> /var/log/pihole-crashes.log
+                >>/var/log/pihole-crashes.log
             sync
             reboot
         fi

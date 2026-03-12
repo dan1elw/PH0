@@ -16,28 +16,28 @@ DEPLOY_DIR="${PROJECT_DIR}/deploy"
 # ============================================================
 FLASH_START=$(date +%s)
 CURRENT_STEP=0
-TOTAL_STEPS=5   # wird ggf. auf 6 erhöht wenn Entpacken nötig
+TOTAL_STEPS=5 # wird ggf. auf 6 erhöht wenn Entpacken nötig
 
 show_step() {
     local step="$1"
     local label="$2"
     CURRENT_STEP="${step}"
 
-    local pct=$(( step * 100 / TOTAL_STEPS ))
-    local filled=$(( step * 24 / TOTAL_STEPS ))
-    local empty=$(( 24 - filled ))
+    local pct=$((step * 100 / TOTAL_STEPS))
+    local filled=$((step * 24 / TOTAL_STEPS))
+    local empty=$((24 - filled))
     local bar=""
-    for ((i=0; i<filled; i++)); do bar+="█"; done
-    for ((i=0; i<empty; i++)); do bar+="░"; done
+    for ((i = 0; i < filled; i++)); do bar+="█"; done
+    for ((i = 0; i < empty; i++)); do bar+="░"; done
 
-    local elapsed=$(( $(date +%s) - FLASH_START ))
+    local elapsed=$(($(date +%s) - FLASH_START))
     local eta_str=""
     if [ "${step}" -gt 0 ] && [ "${pct}" -lt 100 ]; then
-        local total_est=$(( elapsed * TOTAL_STEPS / step ))
-        local remaining=$(( total_est - elapsed ))
+        local total_est=$((elapsed * TOTAL_STEPS / step))
+        local remaining=$((total_est - elapsed))
         if [ "${remaining}" -gt 0 ]; then
-            local rem_m=$(( remaining / 60 ))
-            local rem_s=$(( remaining % 60 ))
+            local rem_m=$((remaining / 60))
+            local rem_s=$((remaining % 60))
             eta_str="  |  ETA: ${rem_m}m ${rem_s}s"
         fi
     fi
@@ -122,7 +122,7 @@ if [ -z "${IMAGE_FILE}" ]; then
     fi
 
     if [ -n "${COMPRESSED}" ]; then
-        TOTAL_STEPS=6   # Entpacken kommt als Extra-Schritt hinzu
+        TOTAL_STEPS=6 # Entpacken kommt als Extra-Schritt hinzu
         COMP_SIZE=$(stat --printf="%s" "${COMPRESSED}")
         BASENAME=$(basename "${COMPRESSED}")
 
@@ -131,18 +131,38 @@ if [ -z "${IMAGE_FILE}" ]; then
         TEMP_IMG="${TEMP_IMG%.gz}"
 
         show_step 1 "Entpacke $(basename "${COMPRESSED}")"
-        if command -v pv > /dev/null 2>&1; then
+        if command -v pv >/dev/null 2>&1; then
             case "${COMPRESSED}" in
-                *.xz)  pv -N "  Entpacken" -s "${COMP_SIZE}" "${COMPRESSED}" | xz -d > "${TEMP_IMG}"; IMAGE_FILE="${TEMP_IMG}" ;;
-                *.gz)  pv -N "  Entpacken" -s "${COMP_SIZE}" "${COMPRESSED}" | gzip -d > "${TEMP_IMG}"; IMAGE_FILE="${TEMP_IMG}" ;;
-                *.zip) TEMP_ZIP_DIR=$(mktemp -d); unzip -o "${COMPRESSED}" -d "${TEMP_ZIP_DIR}"; IMAGE_FILE=$(ls -t "${TEMP_ZIP_DIR}"/*.img | head -1) ;;
+                *.xz)
+                    pv -N "  Entpacken" -s "${COMP_SIZE}" "${COMPRESSED}" | xz -d >"${TEMP_IMG}"
+                    IMAGE_FILE="${TEMP_IMG}"
+                    ;;
+                *.gz)
+                    pv -N "  Entpacken" -s "${COMP_SIZE}" "${COMPRESSED}" | gzip -d >"${TEMP_IMG}"
+                    IMAGE_FILE="${TEMP_IMG}"
+                    ;;
+                *.zip)
+                    TEMP_ZIP_DIR=$(mktemp -d)
+                    unzip -o "${COMPRESSED}" -d "${TEMP_ZIP_DIR}"
+                    IMAGE_FILE=$(ls -t "${TEMP_ZIP_DIR}"/*.img | head -1)
+                    ;;
             esac
         else
             echo "  (installiere 'pv' für Fortschrittsanzeige: sudo apt install pv)"
             case "${COMPRESSED}" in
-                *.xz)  xz -dk "${COMPRESSED}" --stdout > "${TEMP_IMG}"; IMAGE_FILE="${TEMP_IMG}" ;;
-                *.gz)  gzip -dk "${COMPRESSED}" --stdout > "${TEMP_IMG}"; IMAGE_FILE="${TEMP_IMG}" ;;
-                *.zip) TEMP_ZIP_DIR=$(mktemp -d); unzip -o "${COMPRESSED}" -d "${TEMP_ZIP_DIR}"; IMAGE_FILE=$(ls -t "${TEMP_ZIP_DIR}"/*.img | head -1) ;;
+                *.xz)
+                    xz -dk "${COMPRESSED}" --stdout >"${TEMP_IMG}"
+                    IMAGE_FILE="${TEMP_IMG}"
+                    ;;
+                *.gz)
+                    gzip -dk "${COMPRESSED}" --stdout >"${TEMP_IMG}"
+                    IMAGE_FILE="${TEMP_IMG}"
+                    ;;
+                *.zip)
+                    TEMP_ZIP_DIR=$(mktemp -d)
+                    unzip -o "${COMPRESSED}" -d "${TEMP_ZIP_DIR}"
+                    IMAGE_FILE=$(ls -t "${TEMP_ZIP_DIR}"/*.img | head -1)
+                    ;;
             esac
         fi
     fi
@@ -193,20 +213,20 @@ fi
 # ============================================================
 # Image schreiben
 # ============================================================
-show_step $(( CURRENT_STEP + 1 )) "Unmounte Partitionen auf ${DEVICE}"
+show_step $((CURRENT_STEP + 1)) "Unmounte Partitionen auf ${DEVICE}"
 for part in "${DEVICE}"?* "${DEVICE}p"?*; do
     [ -b "${part}" ] 2>/dev/null && sudo umount "${part}" 2>/dev/null || true
 done
 
-show_step $(( CURRENT_STEP + 1 )) "Schreibe Image auf ${DEVICE} (${IMAGE_SIZE_HUMAN})"
-if command -v pv > /dev/null 2>&1; then
+show_step $((CURRENT_STEP + 1)) "Schreibe Image auf ${DEVICE} (${IMAGE_SIZE_HUMAN})"
+if command -v pv >/dev/null 2>&1; then
     pv -N "  Schreiben" -s "${IMAGE_SIZE_BYTES}" "${IMAGE_FILE}" | sudo dd of="${DEVICE}" bs=4M conv=fsync 2>/dev/null
 else
     echo "  (installiere 'pv' für Fortschrittsanzeige: sudo apt install pv)"
     sudo dd if="${IMAGE_FILE}" of="${DEVICE}" bs=4M status=progress conv=fsync
 fi
 
-show_step $(( CURRENT_STEP + 1 )) "Synchronisiere Puffer..."
+show_step $((CURRENT_STEP + 1)) "Synchronisiere Puffer..."
 sync
 
 sudo partprobe "${DEVICE}" 2>/dev/null || true
@@ -215,7 +235,7 @@ sleep 2
 # ============================================================
 # secrets.env auf Boot-Partition kopieren
 # ============================================================
-show_step $(( CURRENT_STEP + 1 )) "Mounte Boot-Partition und kopiere secrets.env"
+show_step $((CURRENT_STEP + 1)) "Mounte Boot-Partition und kopiere secrets.env"
 
 if [[ "${DEVICE}" == *"mmcblk"* ]] || [[ "${DEVICE}" == *"nvme"* ]]; then
     BOOT_PARTITION="${DEVICE}p1"
@@ -262,9 +282,9 @@ rmdir "${MOUNT_POINT}"
 # Fertig
 # ============================================================
 FLASH_END=$(date +%s)
-FLASH_TOTAL=$(( FLASH_END - FLASH_START ))
-FLASH_M=$(( FLASH_TOTAL / 60 ))
-FLASH_S=$(( FLASH_TOTAL % 60 ))
+FLASH_TOTAL=$((FLASH_END - FLASH_START))
+FLASH_M=$((FLASH_TOTAL / 60))
+FLASH_S=$((FLASH_TOTAL % 60))
 
 show_step "${TOTAL_STEPS}" "Fertig"
 echo "=========================================="

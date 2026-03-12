@@ -160,6 +160,12 @@ else
     phase_fail 2
 fi
 
+# Passwordless sudo für PI_USER
+SUDOERS_FILE="/etc/sudoers.d/${PI_USER}"
+echo "${PI_USER} ALL=(ALL) NOPASSWD: ALL" > "${SUDOERS_FILE}"
+chmod 440 "${SUDOERS_FILE}"
+log_info "Passwordless sudo konfiguriert: ${SUDOERS_FILE}"
+
 phase_end_or_skip 2
 
 # ============================================================
@@ -423,6 +429,17 @@ else
 fi
 
 phase_end_or_skip 5
+
+# pihole-Gruppe existiert nach Installation – Benutzer hinzufügen
+if getent group pihole &>/dev/null; then
+    if usermod -aG pihole "${PI_USER}"; then
+        log_info "${PI_USER} zur pihole-Gruppe hinzugefügt."
+    else
+        log_warn "usermod -aG pihole ${PI_USER} fehlgeschlagen."
+    fi
+else
+    log_warn "pihole-Gruppe nicht gefunden – Gruppenmitgliedschaft übersprungen."
+fi
 
 # ============================================================
 # 6. Log2RAM installieren

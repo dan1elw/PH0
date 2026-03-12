@@ -225,6 +225,17 @@ else
     test_skip "DNS-Auflösung (google.com)" "dig nicht installiert"
 fi
 
+if [ "${HAS_DIG}" = true ]; then
+    result=$(dig @"${PI_HOST}" doubleclick.net A +short +time=5 +tries=1 2>/dev/null || echo "")
+    if echo "${result}" | grep -q "^0\.0\.0\.0$"; then
+        test_pass "DNS-Blocking aktiv (doubleclick.net → 0.0.0.0)"
+    else
+        test_fail "DNS-Blocking inaktiv (doubleclick.net → ${result:-keine Antwort})"
+    fi
+else
+    test_skip "DNS-Blocking" "dig nicht installiert"
+fi
+
 # Pi-hole Web UI
 if curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 \
     "http://${PI_HOST}/admin/" 2>/dev/null | grep -qE "200|302|301"; then
@@ -261,7 +272,7 @@ else
     echo "--- Services ---"
 
     for svc in pihole-FTL log2ram wlan-monitor nftables; do
-        result=$(run_remote "systemctl is-active ${svc} 2>/dev/null" || echo "inactive")
+        result=$(run_remote "systemctl is-active ${svc} 2>/dev/null")
         if echo "${result}" | grep -q "^active"; then
             test_pass "${svc} Service aktiv"
         else
@@ -270,7 +281,7 @@ else
     done
 
     # Health-Check Timer
-    result=$(run_remote "systemctl is-active health-check.timer 2>/dev/null" || echo "inactive")
+    result=$(run_remote "systemctl is-active health-check.timer 2>/dev/null")
     if echo "${result}" | grep -q "^active"; then
         test_pass "health-check.timer aktiv"
     else

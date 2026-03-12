@@ -514,14 +514,11 @@ phase_end_or_skip 6
 # ============================================================
 phase_start 7 "Services aktivieren"
 
-# Watchdog benötigt /var/log/watchdog
-mkdir -p /var/log/watchdog
-
 # daemon-reload zuerst: Pi-hole apt-Install hat neue Units hinzugefügt
 systemctl daemon-reload && log_info "systemd Daemon neu geladen." || \
     log_warn "daemon-reload fehlgeschlagen."
 
-for svc in watchdog wlan-monitor health-check.timer; do
+for svc in wlan-monitor health-check.timer; do
     # Dateibasierte Prüfung statt systemctl list-unit-files (nach apt ggf. unvollständig)
     unit_found=false
     for dir in /lib/systemd/system /etc/systemd/system /usr/lib/systemd/system; do
@@ -536,16 +533,6 @@ for svc in watchdog wlan-monitor health-check.timer; do
             log_info "Service aktiviert: ${svc}"
         else
             log_warn "Service konnte nicht aktiviert werden: ${svc}"
-        fi
-
-        # watchdog.service hat WantedBy=default.target, aber auf Raspberry Pi OS ist
-        # default.target=graphical.target und bleibt inaktiv (kein Display-Manager).
-        # Daher zusätzlich in multi-user.target.wants einhängen.
-        if [ "${svc}" = "watchdog" ]; then
-            mkdir -p /etc/systemd/system/multi-user.target.wants
-            ln -sf /lib/systemd/system/watchdog.service \
-                /etc/systemd/system/multi-user.target.wants/watchdog.service 2>/dev/null || true
-            log_info "watchdog.service in multi-user.target.wants verknüpft."
         fi
     else
         log_warn "Service-Datei nicht gefunden, übersprungen: ${svc}"

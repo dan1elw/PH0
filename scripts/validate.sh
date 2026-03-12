@@ -262,7 +262,7 @@ else
     echo ""
     echo "--- Services ---"
 
-    for svc in pihole-FTL log2ram wlan-monitor watchdog nftables; do
+    for svc in pihole-FTL log2ram wlan-monitor nftables; do
         result=$(run_remote "systemctl is-active ${svc} 2>/dev/null" || echo "inactive")
         if echo "${result}" | grep -q "^active"; then
             test_pass "${svc} Service aktiv"
@@ -277,6 +277,14 @@ else
         test_pass "health-check.timer aktiv"
     else
         test_fail "health-check.timer aktiv (Status: ${result})"
+    fi
+
+    # Hardware-Watchdog (systemd RuntimeWatchdogSec)
+    result=$(run_remote "systemctl show --property=RuntimeWatchdogUSec 2>/dev/null" || echo "")
+    if echo "${result}" | grep -qv "=0$"; then
+        test_pass "Hardware-Watchdog aktiv (${result#*=})"
+    else
+        test_fail "Hardware-Watchdog inaktiv (RuntimeWatchdogUSec=0)"
     fi
 
     echo ""

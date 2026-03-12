@@ -46,12 +46,12 @@ if ! grep -q "bcm2835_wdt" "${ROOTFS_DIR}/etc/modules" 2>/dev/null; then
     echo "bcm2835_wdt" >> "${ROOTFS_DIR}/etc/modules"
 fi
 
-# Watchdog Service: nach systemd-modules-load starten, damit bcm2835_wdt
-# und /dev/watchdog verfügbar sind bevor watchdog.service startet.
-mkdir -p "${ROOTFS_DIR}/etc/systemd/system/watchdog.service.d"
-cat > "${ROOTFS_DIR}/etc/systemd/system/watchdog.service.d/override.conf" << 'EOF'
-[Unit]
-After=systemd-modules-load.service
+# Hardware-Watchdog über systemd RuntimeWatchdogSec statt userspace watchdog-Daemon.
+# systemd füttert /dev/watchdog direkt – zuverlässiger und ohne Service-Abhängigkeiten.
+mkdir -p "${ROOTFS_DIR}/etc/systemd/system.conf.d"
+cat > "${ROOTFS_DIR}/etc/systemd/system.conf.d/watchdog.conf" << 'EOF'
+[Manager]
+RuntimeWatchdogSec=10
 EOF
 
 # ============================================================

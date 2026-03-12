@@ -86,11 +86,11 @@ EOF
 
 @test "secrets.env sourcing: special characters in values" {
     cat >"${TEST_DIR}/test-secrets.env" <<'EOF'
-PIHOLE_PASSWORD="p@$$w0rd!#%"
+PIHOLE_PASSWORD="p@##w0rd!#%"
 SSH_PUBLIC_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample user@host"
 EOF
     # shellcheck source=/dev/null
     source "${TEST_DIR}/test-secrets.env"
-    [ "${PIHOLE_PASSWORD}" = 'p@$$w0rd!#%' ]
+    [ "${PIHOLE_PASSWORD}" = 'p@##w0rd!#%' ]
     [[ "${SSH_PUBLIC_KEY}" == ssh-ed25519* ]]
 }

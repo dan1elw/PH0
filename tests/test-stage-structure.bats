@@ -33,7 +33,7 @@ setup() {
         basename=$(basename "${script}")
         # Skip first-boot.sh — it runs at runtime, not in chroot
         [ "${basename}" = "first-boot.sh" ] && continue
-        if grep -n 'systemctl' "${script}" | grep -v '^#' | grep -v 'systemctl list-unit-files'; then
+        if grep -n 'systemctl' "${script}" | grep -v ':#' | grep -v 'systemctl list-unit-files'; then
             echo "Found systemctl in chroot script: ${script}"
             return 1
         fi

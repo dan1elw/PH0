@@ -8,12 +8,16 @@
 #   ./scripts/validate.sh 192.168.178.50 admin  # Andere IP + User
 #   ./scripts/validate.sh --wait             # Wartet bis Pi erreichbar ist
 
-# KEIN set -e! Tests dürfen fehlschlagen ohne das Script abzubrechen.
+# set -e bewusst weggelassen: einzelne Tests dürfen fehlschlagen, ohne das
+# Script abzubrechen – wir sammeln alle Ergebnisse und zeigen am Ende eine
+# Zusammenfassung. set -u und pipefail bleiben aktiv für echte Fehler.
 set -uo pipefail
 
 trap 'echo ""; echo "Abbruch."; exit 130' INT TERM
 
-# Standardwerte aus secrets.env laden (immer, falls vorhanden)
+# Standardwerte aus secrets.env laden (falls vorhanden).
+# Underscore-Präfix kennzeichnet interne Defaults, die später durch
+# CLI-Argumente oder secrets.env-Werte überschrieben werden können.
 SECRETS_ENV="$(dirname "$0")/../secrets.env"
 _DEFAULT_HOST="192.168.178.49"
 _DEFAULT_USER="pi"
@@ -44,6 +48,12 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
+# SSH-Optionen für alle Remote-Aufrufe:
+#   ConnectTimeout=5        – nicht ewig hängen wenn Pi nicht antwortet
+#   BatchMode=yes           – kein interaktiver Passwort-Prompt (Key-Only)
+#   StrictHostKeyChecking=no – Host-Key wird nicht geprüft (Pi kann neu geflasht sein)
+#   UserKnownHostsFile=/dev/null – known_hosts nicht verschmutzen
+#   LogLevel=ERROR          – Banner und Warnungen unterdrücken
 SSH_OPTS="-o ConnectTimeout=5 -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
 
 # ============================================================
@@ -97,6 +107,8 @@ run_test() {
 }
 
 run_remote() {
+    # SSH_OPTS muss hier unquoted bleiben damit Word-Splitting die Flags trennt.
+    # shellcheck disable=SC2086
     ssh ${SSH_OPTS} "${PI_USER}@${PI_HOST}" "$1" 2>/dev/null
 }
 
@@ -136,6 +148,7 @@ if [ "${WAIT_MODE}" = true ]; then
             continue
         fi
 
+        # shellcheck disable=SC2086
         BOOT_STATUS=$(ssh ${SSH_OPTS} "${PI_USER}@${PI_HOST}" \
             "systemctl is-enabled first-boot.service 2>/dev/null; true" \
             2>/dev/null || echo "ssh-failed")
@@ -221,6 +234,7 @@ fi
 
 # Prüfe ob SSH funktioniert, bevor wir Remote-Tests machen
 SSH_OK=false
+# shellcheck disable=SC2086
 if ssh ${SSH_OPTS} "${PI_USER}@${PI_HOST}" "echo ok" >/dev/null 2>&1; then
     test_pass "SSH-Verbindung"
     SSH_OK=true

@@ -17,7 +17,8 @@ FAILED_PHASES=()
 SCRIPT_START=$(date +%s)
 PHASE_START=${SCRIPT_START}
 
-# Alles loggen
+# Alle stdout/stderr-Ausgaben gleichzeitig nach Logfile UND Konsole (systemd journal).
+# tee -a hängt an – mehrere Starts (Retry) überschreiben das Log nicht.
 exec > >(tee -a "${LOGFILE}") 2>&1
 
 log_info() {
@@ -52,7 +53,9 @@ phase_fail() {
     FAILED_PHASES+=("$1")
 }
 
-# Wie phase_end, aber nur wenn diese Phase nicht schon als fehlgeschlagen markiert wurde
+# Wie phase_end, aber überspringt die Abschlussmeldung wenn phase_fail für
+# diese Phase bereits aufgerufen wurde – vermeidet irreführendes "abgeschlossen"
+# nach einem teilweisen Fehler innerhalb der Phase.
 phase_end_or_skip() {
     local num=$1
     for p in "${FAILED_PHASES[@]}"; do
@@ -86,6 +89,8 @@ log_info "secrets.env: ${SECRETS_FILE}"
 source "${SECRETS_FILE}"
 
 for var in PI_USER PI_USER_PASSWORD PIHOLE_PASSWORD WIFI_SSID WIFI_PASSWORD SSH_PUBLIC_KEY; do
+    # ${!var:-} ist indirekte Expansion: Wert der Variable mit Name $var lesen.
+    # :-  statt  :  damit set -u nicht bei leeren Strings fehlschlägt.
     if [ -z "${!var:-}" ]; then
         log_err "Pflichtfeld ${var} ist nicht gesetzt in secrets.env!"
         exit 1
@@ -255,7 +260,8 @@ if nmcli connection add \
 
     for attempt in $(seq 1 3); do
         log_info "Aktiviere WiFi-Verbindung, Versuch ${attempt}/3 (max. 120s)..."
-        # -w: globaler nmcli-Timeout (ältere Versionen kennen kein --timeout bei connection up)
+        # nmcli -w 120: globaler Warte-Timeout in Sekunden.
+        # "connection up" blockiert bis verbunden oder Timeout erreicht ist.
         if nmcli -w 120 connection up "pihole-wifi" 2>&1; then
             log_info "WiFi verbunden (Versuch ${attempt})."
             WIFI_CONNECTED=true
@@ -514,8 +520,8 @@ log_info "Setze Log2RAM Sync-Intervall auf stündlich..."
 mkdir -p /etc/systemd/system/log2ram-daily.timer.d
 cat >/etc/systemd/system/log2ram-daily.timer.d/override.conf <<'EOF'
 [Timer]
-OnCalendar=
-OnCalendar=*-*-* *:00:00
+OnCalendar=                  # Leere Zuweisung: überschreibt/löscht den Default-Wert
+OnCalendar=*-*-* *:00:00    # Stündlich zur vollen Stunde (statt täglich um 00:00)
 EOF
 log_info "Log2RAM Timer-Override geschrieben."
 

@@ -8,8 +8,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR
 PROJECT_DIR="$(dirname "${SCRIPT_DIR}")"
-DEPLOY_DIR="${PROJECT_DIR}/deploy"
+readonly PROJECT_DIR
+readonly DEPLOY_DIR="${PROJECT_DIR}/deploy"
 
 # ============================================================
 # Fortschritts-Tracking
@@ -23,6 +25,7 @@ show_step() {
     local label="$2"
     CURRENT_STEP="${step}"
 
+    # Fortschrittsbalken: 24 Zeichen breit, proportional zum aktuellen Schritt
     local pct=$((step * 100 / TOTAL_STEPS))
     local filled=$((step * 24 / TOTAL_STEPS))
     local empty=$((24 - filled))
@@ -30,6 +33,7 @@ show_step() {
     for ((i = 0; i < filled; i++)); do bar+="█"; done
     for ((i = 0; i < empty; i++)); do bar+="░"; done
 
+    # Lineare ETA-Schätzung: vergangene Zeit / bisherige Schritte × Gesamtschritte
     local elapsed=$(($(date +%s) - FLASH_START))
     local eta_str=""
     if [ "${step}" -gt 0 ] && [ "${pct}" -lt 100 ]; then
@@ -126,7 +130,9 @@ if [ -z "${IMAGE_FILE}" ]; then
         COMP_SIZE=$(stat --printf="%s" "${COMPRESSED}")
         BASENAME=$(basename "${COMPRESSED}")
 
-        # Entpacken nach /tmp um deploy/ nicht mit .img-Dateien zu verschmutzen
+        # Entpacken nach /tmp, damit deploy/ sauber bleibt.
+        # Doppeltes Strip: zuerst .xz, dann .gz – jeweils eine Substitution
+        # greift, die andere ist ein No-op.
         TEMP_IMG="/tmp/${BASENAME%.xz}"
         TEMP_IMG="${TEMP_IMG%.gz}"
 
@@ -214,6 +220,9 @@ fi
 # Image schreiben
 # ============================================================
 show_step $((CURRENT_STEP + 1)) "Unmounte Partitionen auf ${DEVICE}"
+# Beide Partitionsnamen-Schemata abdecken:
+#   /dev/sda  → /dev/sda1, /dev/sda2, ...     (sda?*)
+#   /dev/mmcblk0 → /dev/mmcblk0p1, ...        (mmcblk0p?*)
 for part in "${DEVICE}"?* "${DEVICE}p"?*; do
     [ -b "${part}" ] 2>/dev/null && sudo umount "${part}" 2>/dev/null || true
 done
@@ -229,6 +238,8 @@ fi
 show_step $((CURRENT_STEP + 1)) "Synchronisiere Puffer..."
 sync
 
+# Kernel über neue Partitionstabelle informieren; kurze Pause damit
+# die Partitions-Gerätedateien (/dev/sda1 etc.) erscheinen.
 sudo partprobe "${DEVICE}" 2>/dev/null || true
 sleep 2
 
@@ -237,6 +248,8 @@ sleep 2
 # ============================================================
 show_step $((CURRENT_STEP + 1)) "Mounte Boot-Partition und kopiere secrets.env"
 
+# mmcblk- und nvme-Geräte trennen Partition mit 'p': /dev/mmcblk0p1
+# Klassische Block-Geräte (sda, sdb) nutzen direkt die Zahl: /dev/sda1
 if [[ "${DEVICE}" == *"mmcblk"* ]] || [[ "${DEVICE}" == *"nvme"* ]]; then
     BOOT_PARTITION="${DEVICE}p1"
 else

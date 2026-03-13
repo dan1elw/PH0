@@ -8,11 +8,13 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(dirname "${SCRIPT_DIR}")"
-PI_GEN_DIR="${PROJECT_DIR}/pi-gen"
-PI_GEN_REPO="https://github.com/RPi-Distro/pi-gen.git"
-PI_GEN_BRANCH="bookworm" # bookworm-Branch für Bookworm 32-bit (armhf) Images
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly PROJECT_DIR="$(dirname "${SCRIPT_DIR}")"
+readonly PI_GEN_DIR="${PROJECT_DIR}/pi-gen"
+readonly PI_GEN_REPO="https://github.com/RPi-Distro/pi-gen.git"
+# bookworm-Branch: erzeugt 32-bit armhf-Images für den Pi Zero W (ARMv6).
+# NICHT master verwenden – master zeigt seit Aug 2025 auf Trixie (64-bit).
+readonly PI_GEN_BRANCH="bookworm"
 
 USE_DOCKER=true
 CLEAN_BUILD=false
@@ -55,6 +57,7 @@ show_step() {
     local label="$2"
     CURRENT_STEP="${step}"
 
+    # Fortschrittsbalken: 24 Zeichen breit, proportional zum aktuellen Schritt
     local pct=$((step * 100 / TOTAL_STEPS))
     local filled=$((step * 24 / TOTAL_STEPS))
     local empty=$((24 - filled))
@@ -62,6 +65,7 @@ show_step() {
     for ((i = 0; i < filled; i++)); do bar+="█"; done
     for ((i = 0; i < empty; i++)); do bar+="░"; done
 
+    # Lineare ETA-Schätzung: vergangene Zeit / bisherige Schritte × Gesamtschritte
     local elapsed=$(($(date +%s) - BUILD_START))
     local eta_str=""
     if [ "${step}" -gt 0 ] && [ "${pct}" -lt 100 ]; then
@@ -130,7 +134,10 @@ if [ -L "${PI_GEN_DIR}/stage-pihole" ] || [ -d "${PI_GEN_DIR}/stage-pihole" ]; t
 fi
 cp -a "${PROJECT_DIR}/stage-pihole" "${PI_GEN_DIR}/stage-pihole"
 
-# Stages 3-5 überspringen (wir bauen nur Lite + unsere Stage)
+# Stages 3-5 überspringen: stage0=bootstrap, stage1=minimal, stage2=lite – das
+# reicht für Pi-hole. stage3=desktop, stage4/5=full – nicht benötigt.
+# SKIP verhindert den Build der Stage; SKIP_IMAGES verhindert zusätzlich das
+# Erzeugen eines separaten Images für diese Stage.
 for stage in stage3 stage4 stage5; do
     touch "${PI_GEN_DIR}/${stage}/SKIP" 2>/dev/null || true
 done
@@ -154,12 +161,15 @@ BUILD_MODE="Docker"
 [ "${USE_DOCKER}" = false ] && BUILD_MODE="Nativ"
 show_step $((CURRENT_STEP + 1)) "pi-gen Build starten (${BUILD_MODE}) – das dauert 30–60 Minuten..."
 
+# set -e ist aktiv, daher build-docker.sh nicht direkt aufrufen – ein
+# Fehler würde das Script sofort abbrechen, bevor wir die Dauer ausgeben
+# können. Stattdessen Exit-Code manuell abfangen und am Ende auswerten.
 BUILD_EXIT=0
 if [ "${USE_DOCKER}" = true ]; then
-    # Stale pigen_work container from a previous failed build would cause
-    # losetup to fail with "Device or resource busy" inside the new container.
-    # Remove it before starting so build-docker.sh creates a fresh container.
+    # Ein alter pigen_work-Container von einem abgebrochenen Build würde
+    # losetup mit "Device or resource busy" blockieren. Vorher entfernen.
     DOCKER_CMD="docker"
+    # Rootless Docker braucht kein sudo; reguläres Docker (root-Daemon) schon.
     if ! docker ps >/dev/null 2>&1 || docker info 2>/dev/null | grep -q rootless; then
         DOCKER_CMD="sudo docker"
     fi
@@ -168,8 +178,9 @@ if [ "${USE_DOCKER}" = true ]; then
         ${DOCKER_CMD} rm -v pigen_work >/dev/null
     fi
 
-    # Systemd-resolved (127.0.0.53) ist im Docker-Container nicht erreichbar.
-    # Google DNS als Fallback übergeben.
+    # systemd-resolved (127.0.0.53) ist im Docker-Container nicht erreichbar.
+    # Google DNS explizit übergeben, damit apt während des Builds auflösen kann.
+    # PIGEN_DOCKER_OPTS wird von build-docker.sh als zusätzliche docker-run-Flags gelesen.
     export PIGEN_DOCKER_OPTS="${PIGEN_DOCKER_OPTS:-} --dns 8.8.8.8 --dns 8.8.4.4"
     ./build-docker.sh || BUILD_EXIT=$?
 else

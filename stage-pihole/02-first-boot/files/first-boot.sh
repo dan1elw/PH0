@@ -430,8 +430,31 @@ if command -v pihole &>/dev/null; then
     else
         log_warn "Gravity-Update fehlgeschlagen (nachholbar mit: pihole -g)."
     fi
+
+    # Self-signed TLS-Zertifikat für Pi-hole HTTPS generieren.
+    # Combined PEM (Cert + Key) wie von Pi-hole v6 FTL erwartet.
+    # SAN enthält IP + Hostname damit Browser und Fritz!Box kein SNI-Problem haben.
+    PIHOLE_CERT="/etc/pihole/tls.pem"
+    log_info "Generiere self-signed TLS-Zertifikat für HTTPS..."
+    if openssl req -x509 \
+        -newkey rsa:2048 \
+        -keyout /tmp/pihole-key.pem \
+        -out /tmp/pihole-cert.pem \
+        -days 3650 \
+        -nodes \
+        -subj "/CN=${PI_HOSTNAME}/O=Pi-hole/C=DE" \
+        -addext "subjectAltName=IP:${PI_IP},DNS:${PI_HOSTNAME},DNS:${PI_HOSTNAME}.local" \
+        2>/dev/null; then
+        cat /tmp/pihole-cert.pem /tmp/pihole-key.pem >"${PIHOLE_CERT}"
+        chmod 640 "${PIHOLE_CERT}"
+        chown pihole:pihole "${PIHOLE_CERT}" 2>/dev/null || true
+        rm -f /tmp/pihole-key.pem /tmp/pihole-cert.pem
+        log_info "TLS-Zertifikat generiert: ${PIHOLE_CERT} (gültig 10 Jahre)"
+    else
+        log_warn "TLS-Zertifikat konnte nicht generiert werden – nur HTTP verfügbar."
+    fi
 else
-    log_warn "pihole-Befehl nicht gefunden – Passwort und Gravity übersprungen."
+    log_warn "pihole-Befehl nicht gefunden – Passwort, Gravity und TLS-Zertifikat übersprungen."
 fi
 
 phase_end_or_skip 5

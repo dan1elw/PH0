@@ -28,7 +28,13 @@
     domain = "fritz.box"
 
 [webserver]
-  port = "80o"
+  # 80o = HTTP optional (bleibt für Kompatibilität)
+  # 443s = HTTPS mit TLS (Zertifikat wird beim First Boot generiert)
+  port = "80o,443s"
+
+  [webserver.tls]
+    # Combined PEM (Zertifikat + privater Schlüssel) – generiert beim First Boot
+    cert = "/etc/pihole/tls.pem"
 
   [webserver.api]
     # Passwort wird beim First Boot via secrets.env gesetzt

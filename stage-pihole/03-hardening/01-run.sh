@@ -44,7 +44,8 @@ table inet filter {
         tcp dport 53 ct state new accept
         udp dport 53 accept
         tcp dport 80 ct state new accept
-        udp dport 5353 accept  # mDNS (Avahi): Hostname + HTTP-Link in Fritz!Box
+        tcp dport 443 ct state new accept  # HTTPS Pi-hole Web UI
+        udp dport 5353 accept              # mDNS (Avahi): Hostname + HTTPS-Link in Fritz!Box
 
         log prefix "nftables-drop: " flags all counter drop
     }
@@ -143,6 +144,11 @@ cat >"${ROOTFS_DIR}/etc/avahi/services/pihole-http.service" <<'EOF'
 <!DOCTYPE service-group SYSTEM "avahi-service.dtd">
 <service-group>
   <name replace-wildcards="yes">Pi-hole Admin (%h)</name>
+  <service>
+    <type>_https._tcp</type>
+    <port>443</port>
+    <txt-record>path=/admin</txt-record>
+  </service>
   <service>
     <type>_http._tcp</type>
     <port>80</port>

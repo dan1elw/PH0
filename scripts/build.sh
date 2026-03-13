@@ -127,7 +127,8 @@ show_step 2 "Kopiere Konfiguration und Stage..."
 # config Datei – IMG_NAME um Uhrzeit ergänzen (HHMM) damit mehrere
 # Builds am gleichen Tag unterscheidbar sind
 cp "${PROJECT_DIR}/config" "${PI_GEN_DIR}/config"
-sed -i "s/^IMG_NAME=.*/IMG_NAME=$(date '+%H%M')-pihole-zerow/" "${PI_GEN_DIR}/config"
+BUILD_HHMM="$(date '+%H%M')"
+sed -i "s/^IMG_NAME=.*/IMG_NAME=${BUILD_HHMM}-pihole-zerow/" "${PI_GEN_DIR}/config"
 
 # Custom Stage kopieren (nicht verlinken – Docker-Build kann Symlinks
 # außerhalb des Build-Kontexts nicht auflösen)
@@ -143,6 +144,8 @@ cp -a "${PROJECT_DIR}/stage-pihole" "${PI_GEN_DIR}/stage-pihole"
 for stage in stage3 stage4 stage5; do
     touch "${PI_GEN_DIR}/${stage}/SKIP" 2>/dev/null || true
 done
+# stage2 = RPi OS Lite (Zwischenergebnis) – kein eigenes Image nötig
+touch "${PI_GEN_DIR}/stage2/SKIP_IMAGES" 2>/dev/null || true
 touch "${PI_GEN_DIR}/stage4/SKIP_IMAGES" 2>/dev/null || true
 touch "${PI_GEN_DIR}/stage5/SKIP_IMAGES" 2>/dev/null || true
 
@@ -207,10 +210,10 @@ if [ "${BUILD_EXIT}" -ne 0 ]; then
     exit "${BUILD_EXIT}"
 fi
 
-if ls "${PI_GEN_DIR}/deploy/"*.img* 1>/dev/null 2>&1; then
-    # Kopiere Image ins Projekt-Verzeichnis
+if ls "${PI_GEN_DIR}/deploy/"*"${BUILD_HHMM}"*.img* 1>/dev/null 2>&1; then
+    # Kopiere nur das gerade gebaute Image ins Projekt-Verzeichnis
     mkdir -p "${PROJECT_DIR}/deploy"
-    cp "${PI_GEN_DIR}/deploy/"*.img* "${PROJECT_DIR}/deploy/"
+    cp "${PI_GEN_DIR}/deploy/"*"${BUILD_HHMM}"*.img* "${PROJECT_DIR}/deploy/"
 
     echo "=========================================="
     echo " Build erfolgreich!"
@@ -218,7 +221,7 @@ if ls "${PI_GEN_DIR}/deploy/"*.img* 1>/dev/null 2>&1; then
     echo "=========================================="
     echo ""
     echo " Image(s):"
-    ls -lh "${PI_GEN_DIR}/deploy/"*.img*
+    ls -lh "${PI_GEN_DIR}/deploy/"*"${BUILD_HHMM}"*.img*
     echo ""
     echo " Nächster Schritt:"
     echo "   ./scripts/flash.sh /dev/sdX"

@@ -5,8 +5,8 @@
 # Prüft: DNS-Auflösung, Pi-hole FTL Status, Speicher, Temperatur, SD-Karte
 # Loggt Ergebnisse nach journald.
 
-LOG_TAG="health-check"
-HEALTH_LOG="/var/log/pihole-health.log"
+readonly LOG_TAG="health-check"
+readonly HEALTH_LOG="/var/log/pihole-health.log"
 ERRORS=0
 
 log_info() {
@@ -138,4 +138,6 @@ echo "${timestamp} | ${summary}" >>"${HEALTH_LOG}"
 #         "https://hooks.example.com/your-webhook-url"
 # fi
 
+# Non-zero Exit-Code veranlasst systemd die Unit als failed zu markieren –
+# das ist gewollt: journalctl zeigt dann "health-check.service: Failed".
 exit ${ERRORS}

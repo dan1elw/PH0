@@ -5,11 +5,11 @@
 # Bei Verbindungsverlust wird wlan0 neu initialisiert.
 # Nach 5 fehlgeschlagenen Versuchen wird ein Neustart ausgelöst.
 
-INTERFACE="wlan0"
-GATEWAY="192.168.178.1"
-MAX_FAILURES=5
-CHECK_INTERVAL=30
-LOG_TAG="wlan-monitor"
+readonly INTERFACE="wlan0"
+readonly GATEWAY="192.168.178.1"
+readonly MAX_FAILURES=5
+readonly CHECK_INTERVAL=30
+readonly LOG_TAG="wlan-monitor"
 
 failure_count=0
 
@@ -27,6 +27,9 @@ log_err() {
 
 restart_interface() {
     log_warn "WLAN-Verbindung verloren. Starte ${INTERFACE} neu..."
+    # down + kurze Pause + up: brcmfmac (SDIO auf Pi Zero W) braucht
+    # eine explizite Pause zwischen down und up für sauberes Re-Init.
+    # sleep 10 danach: Zeit für wpa_supplicant und NM zum Reconnect.
     ip link set "${INTERFACE}" down
     sleep 2
     ip link set "${INTERFACE}" up
@@ -54,7 +57,8 @@ while true; do
 
         if [ ${failure_count} -ge ${MAX_FAILURES} ]; then
             log_err "Maximale Fehlversuche erreicht. Starte System neu..."
-            # Crash-Log schreiben bevor Neustart
+            # Crash-Log und sync vor reboot: Log2RAM hält Logs im RAM –
+            # sync stellt sicher dass alles auf der SD-Karte landet.
             echo "$(date -Iseconds) WLAN-Monitor: Neustart nach ${MAX_FAILURES} Fehlversuchen" \
                 >>/var/log/pihole-crashes.log
             sync

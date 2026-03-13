@@ -7,18 +7,20 @@
 # ============================================================
 # SSH Härtung
 # ============================================================
+# Jedes sed-Muster matched auch auskommentierte Direktiven (#Foo),
+# sodass Bookworm-Defaults zuverlässig überschrieben werden.
 sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' \
-    "${ROOTFS_DIR}/etc/ssh/sshd_config"
+    "${ROOTFS_DIR}/etc/ssh/sshd_config"         # Passwort-Login komplett deaktivieren
 sed -i 's/^#\?ChallengeResponseAuthentication.*/ChallengeResponseAuthentication no/' \
-    "${ROOTFS_DIR}/etc/ssh/sshd_config"
+    "${ROOTFS_DIR}/etc/ssh/sshd_config"         # Keyboard-interactive Auth deaktivieren
 sed -i 's/^#\?UsePAM.*/UsePAM no/' \
-    "${ROOTFS_DIR}/etc/ssh/sshd_config"
+    "${ROOTFS_DIR}/etc/ssh/sshd_config"         # PAM deaktivieren (nur Key-Auth)
 sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' \
-    "${ROOTFS_DIR}/etc/ssh/sshd_config"
+    "${ROOTFS_DIR}/etc/ssh/sshd_config"         # Root-Login über SSH verboten
 sed -i 's/^#\?PubkeyAuthentication.*/PubkeyAuthentication yes/' \
-    "${ROOTFS_DIR}/etc/ssh/sshd_config"
+    "${ROOTFS_DIR}/etc/ssh/sshd_config"         # Public-Key-Auth explizit aktivieren
 sed -i 's/^#\?MaxAuthTries.*/MaxAuthTries 3/' \
-    "${ROOTFS_DIR}/etc/ssh/sshd_config"
+    "${ROOTFS_DIR}/etc/ssh/sshd_config"         # Brute-Force-Schutz: max. 3 Versuche
 
 # ============================================================
 # Firewall (nftables)
@@ -85,9 +87,13 @@ rm -f "${ROOTFS_DIR}/var/swap" 2>/dev/null || true
 # Kernel-Parameter für SD-Karten-Schutz
 # ============================================================
 cat >"${ROOTFS_DIR}/etc/sysctl.d/99-sdcard-protect.conf" <<'EOF'
+# Dirty Writeback alle 60s (statt 5s): reduziert SD-Schreibfrequenz drastisch
 vm.dirty_writeback_centisecs = 6000
+# Bis zu 60% RAM dirty halten bevor sync blockiert
 vm.dirty_ratio = 60
+# Hintergrund-Sync erst bei 40% – kein aggressives Flushen
 vm.dirty_background_ratio = 40
+# Swappiness=1: RAM fast nie in Swap auslagern (kein Swap auf SD)
 vm.swappiness = 1
 EOF
 
@@ -108,7 +114,7 @@ EOF
 # ============================================================
 # config.txt: Optimierungen für Pi Zero W
 # ============================================================
-# Prüfe ob Pfad existiert (Bookworm: /boot/firmware, älter: /boot)
+# Boot-Config Pfad: Bookworm nutzt /boot/firmware/, ältere Images /boot/
 BOOT_CONFIG="${ROOTFS_DIR}/boot/firmware/config.txt"
 if [ ! -f "${BOOT_CONFIG}" ]; then
     BOOT_CONFIG="${ROOTFS_DIR}/boot/config.txt"

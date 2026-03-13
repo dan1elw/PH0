@@ -48,6 +48,8 @@ fi
 
 # Hardware-Watchdog über systemd RuntimeWatchdogSec statt userspace watchdog-Daemon.
 # systemd füttert /dev/watchdog direkt – zuverlässiger und ohne Service-Abhängigkeiten.
+# RuntimeWatchdogSec=10: systemd muss /dev/watchdog alle 10s beschreiben,
+# sonst löst der Hardware-Watchdog nach dem Timeout einen Reboot aus.
 mkdir -p "${ROOTFS_DIR}/etc/systemd/system.conf.d"
 cat >"${ROOTFS_DIR}/etc/systemd/system.conf.d/watchdog.conf" <<'EOF'
 [Manager]
@@ -86,6 +88,9 @@ install -v -m 644 \
 # ============================================================
 CONFIGTXT="${ROOTFS_DIR}/boot/firmware/config.txt"
 if [ -f "${CONFIGTXT}" ]; then
+    # Entweder vorhandenes country= ersetzen oder am Ende anhängen.
+    # Default DE – wird beim First Boot via secrets.env nicht überschrieben
+    # (config.txt ist vor secrets.env-Auswertung bereits aktiv).
     if grep -q "^country=" "${CONFIGTXT}"; then
         sed -i "s/^country=.*/country=DE/" "${CONFIGTXT}"
     else
@@ -106,15 +111,15 @@ dns=none
 EOF
 
 # ============================================================
-# Pi-hole FTL systemd Hardening (Override-Datei, wird aktiv sobald
-# pihole-FTL.service beim First Boot installiert wird)
+# Pi-hole FTL systemd Hardening (Drop-in Override)
+# Wird aktiv sobald pihole-FTL.service beim First Boot installiert wird.
 # ============================================================
 mkdir -p "${ROOTFS_DIR}/etc/systemd/system/pihole-FTL.service.d"
 cat >"${ROOTFS_DIR}/etc/systemd/system/pihole-FTL.service.d/override.conf" <<'EOF'
 [Service]
-Restart=on-failure
-RestartSec=5
-WatchdogSec=60
-StartLimitIntervalSec=300
-StartLimitBurst=5
+Restart=on-failure         # Bei Absturz automatisch neustarten
+RestartSec=5               # 5s warten vor Neustart
+WatchdogSec=60             # FTL muss sich alle 60s via sd_notify melden
+StartLimitIntervalSec=300  # Innerhalb von 5 Minuten...
+StartLimitBurst=5          # ...maximal 5 Neustarts erlaubt
 EOF

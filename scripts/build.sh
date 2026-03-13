@@ -8,8 +8,10 @@
 
 set -euo pipefail
 
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly PROJECT_DIR="$(dirname "${SCRIPT_DIR}")"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR
+PROJECT_DIR="$(dirname "${SCRIPT_DIR}")"
+readonly PROJECT_DIR
 readonly PI_GEN_DIR="${PROJECT_DIR}/pi-gen"
 readonly PI_GEN_REPO="https://github.com/RPi-Distro/pi-gen.git"
 # bookworm-Branch: erzeugt 32-bit armhf-Images für den Pi Zero W (ARMv6).

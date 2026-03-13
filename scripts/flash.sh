@@ -7,8 +7,10 @@
 
 set -euo pipefail
 
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly PROJECT_DIR="$(dirname "${SCRIPT_DIR}")"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR
+PROJECT_DIR="$(dirname "${SCRIPT_DIR}")"
+readonly PROJECT_DIR
 readonly DEPLOY_DIR="${PROJECT_DIR}/deploy"
 
 # ============================================================

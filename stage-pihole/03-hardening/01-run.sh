@@ -10,17 +10,17 @@
 # Jedes sed-Muster matched auch auskommentierte Direktiven (#Foo),
 # sodass Bookworm-Defaults zuverlässig überschrieben werden.
 sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' \
-    "${ROOTFS_DIR}/etc/ssh/sshd_config"         # Passwort-Login komplett deaktivieren
+    "${ROOTFS_DIR}/etc/ssh/sshd_config" # Passwort-Login komplett deaktivieren
 sed -i 's/^#\?ChallengeResponseAuthentication.*/ChallengeResponseAuthentication no/' \
-    "${ROOTFS_DIR}/etc/ssh/sshd_config"         # Keyboard-interactive Auth deaktivieren
+    "${ROOTFS_DIR}/etc/ssh/sshd_config" # Keyboard-interactive Auth deaktivieren
 sed -i 's/^#\?UsePAM.*/UsePAM no/' \
-    "${ROOTFS_DIR}/etc/ssh/sshd_config"         # PAM deaktivieren (nur Key-Auth)
+    "${ROOTFS_DIR}/etc/ssh/sshd_config" # PAM deaktivieren (nur Key-Auth)
 sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' \
-    "${ROOTFS_DIR}/etc/ssh/sshd_config"         # Root-Login über SSH verboten
+    "${ROOTFS_DIR}/etc/ssh/sshd_config" # Root-Login über SSH verboten
 sed -i 's/^#\?PubkeyAuthentication.*/PubkeyAuthentication yes/' \
-    "${ROOTFS_DIR}/etc/ssh/sshd_config"         # Public-Key-Auth explizit aktivieren
+    "${ROOTFS_DIR}/etc/ssh/sshd_config" # Public-Key-Auth explizit aktivieren
 sed -i 's/^#\?MaxAuthTries.*/MaxAuthTries 3/' \
-    "${ROOTFS_DIR}/etc/ssh/sshd_config"         # Brute-Force-Schutz: max. 3 Versuche
+    "${ROOTFS_DIR}/etc/ssh/sshd_config" # Brute-Force-Schutz: max. 3 Versuche
 
 # ============================================================
 # Firewall (nftables)

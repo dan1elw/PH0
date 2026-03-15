@@ -436,8 +436,11 @@ if command -v pihole &>/dev/null; then
     # SAN enthält IP + Hostname damit Browser und Fritz!Box kein SNI-Problem haben.
     PIHOLE_CERT="/etc/pihole/tls.pem"
     log_info "Generiere self-signed TLS-Zertifikat für HTTPS..."
+    # ECDSA P-256: erzeugt TLS-Zertifikat in <1s statt ~60s (RSA-2048).
+    # ARMv6 hat keine Crypto-Hardware – RSA-Keygen würde die CPU für ~60s auf >2.0 Load treiben.
     if openssl req -x509 \
-        -newkey rsa:2048 \
+        -newkey ec \
+        -pkeyopt ec_paramgen_curve:P-256 \
         -keyout /tmp/pihole-key.pem \
         -out /tmp/pihole-cert.pem \
         -days 3650 \
@@ -543,8 +546,10 @@ log_info "Setze Log2RAM Sync-Intervall auf stündlich..."
 mkdir -p /etc/systemd/system/log2ram-daily.timer.d
 cat >/etc/systemd/system/log2ram-daily.timer.d/override.conf <<'EOF'
 [Timer]
-OnCalendar=                  # Leere Zuweisung: überschreibt/löscht den Default-Wert
-OnCalendar=*-*-* *:00:00    # Stündlich zur vollen Stunde (statt täglich um 00:00)
+# Leere Zuweisung: überschreibt/löscht den Default-Wert
+OnCalendar=
+# Stündlich zur vollen Stunde (statt täglich um 00:00)
+OnCalendar=*-*-* *:00:00
 EOF
 log_info "Log2RAM Timer-Override geschrieben."
 

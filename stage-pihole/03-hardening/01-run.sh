@@ -21,6 +21,8 @@ sed -i 's/^#\?PubkeyAuthentication.*/PubkeyAuthentication yes/' \
     "${ROOTFS_DIR}/etc/ssh/sshd_config" # Public-Key-Auth explizit aktivieren
 sed -i 's/^#\?MaxAuthTries.*/MaxAuthTries 3/' \
     "${ROOTFS_DIR}/etc/ssh/sshd_config" # Brute-Force-Schutz: max. 3 Versuche
+sed -i 's/^#\?Banner.*/Banner none/' \
+    "${ROOTFS_DIR}/etc/ssh/sshd_config" # userconf-pi Banner unterdrücken (Key-Only)
 
 # ============================================================
 # Firewall (nftables)

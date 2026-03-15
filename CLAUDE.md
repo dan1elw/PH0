@@ -19,7 +19,7 @@ stage-pihole/                  # Custom pi-gen stage (the core of the project)
   02-first-boot/               # First-boot service (Pi-hole + Log2RAM install at runtime)
   03-hardening/                # SSH, nftables firewall, tmpfs, kernel tuning
 scripts/                       # Host-side tooling: build.sh, flash.sh, validate.sh
-docs/                          # ARCHITECTURE.md, SETUP.md, TROUBLESHOOTING.md, CHANGELOG.md
+docs/                          # ARCHITECTURE.md, SETUP.md, TROUBLESHOOTING.md
 .github/workflows/             # GitHub Actions: build-image.yml
 ```
 
@@ -97,7 +97,6 @@ IMPORTANT: Follow these strictly for all `.sh` files.
 - Every doc includes the AI-generated disclaimer: `> **Hinweis:** Dieses Dokument wurde mit Unterstützung von KI (Claude/Anthropic) erstellt.`
 - User-facing documentation is in **German**
 - Technical terms, commands, and variable names remain in **English**
-- Update CHANGELOG.md for every user-visible change
 
 ## Testing
 

@@ -20,7 +20,6 @@ automatisiertem Watchdog-Stack und CI/CD-Pipeline via GitHub Actions.
 - [Validierung](#validierung)
 - [Wartung](#wartung)
 - [Troubleshooting](#troubleshooting)
-- [Changelog](#changelog)
 - [Lizenz](#lizenz)
 
 ## Funktionsumfang
@@ -33,7 +32,8 @@ automatisiertem Watchdog-Stack und CI/CD-Pipeline via GitHub Actions.
 - **Health-Check** – systemd-Timer prüft alle 5 Minuten DNS, FTL-Status, Speicher, Temperatur
 - **First-Boot-Service** – Secrets werden beim Erststart aus `secrets.env` geladen, nie im Image gespeichert
 - **SSH gehärtet** – Key-basierte Authentifizierung, Passwort-Login deaktiviert
-- **Firewall (nftables)** – nur DNS (53), HTTP (80), SSH (22) erlaubt
+- **HTTPS** – self-signed TLS-Zertifikat wird beim First Boot automatisch generiert (ECDSA P-256, 10 Jahre)
+- **Firewall (nftables)** – nur DNS (53), HTTP (80), HTTPS (443), SSH (22), mDNS (5353) erlaubt
 - **CI/CD** – GitHub Actions baut bei jedem Tag automatisch ein neues Image
 
 ## Voraussetzungen
@@ -152,8 +152,7 @@ pihole-image/
 └── docs/
     ├── ARCHITECTURE.md                # Detaillierte Architektur
     ├── SETUP.md                       # Ersteinrichtung
-    ├── TROUBLESHOOTING.md             # Fehlerbehebung
-    └── CHANGELOG.md                   # Änderungshistorie
+    └── TROUBLESHOOTING.md             # Fehlerbehebung
 ```
 
 ## Konfiguration
@@ -230,22 +229,24 @@ Das Flash-Script:
 
 Beim ersten Boot passiert automatisch:
 
-1. Der First-Boot-Service liest `secrets.env` von der Boot-Partition
+1. Der First-Boot-Service liest `secrets.env` von der Boot-Partition (`/boot/firmware/` oder `/boot/`)
 2. Hostname wird gesetzt
 3. Benutzer-Passwort wird gesetzt (für sudo und Console-Login)
 4. WiFi wird konfiguriert (SSID, Passwort, statische IP)
 5. SSH-Key wird deployt
 6. **Pi-hole v6 wird installiert** (benötigt Internet-Verbindung)
 7. Pi-hole Admin-Passwort wird gesetzt, Gravity (Blocklisten) wird geladen
-8. **Log2RAM wird installiert**
-9. Alle Services werden aktiviert (Watchdog, WLAN-Monitor, Health-Check)
-10. `secrets.env` wird sicher gelöscht
-11. Der First-Boot-Service deaktiviert sich selbst
-12. Der Pi startet neu
+8. **TLS-Zertifikat wird generiert** (self-signed ECDSA, gültig 10 Jahre, SAN: IP + Hostname + `pi.hole`)
+9. **Log2RAM wird installiert**
+10. Alle Services werden aktiviert (WLAN-Monitor, Health-Check)
+11. `secrets.env` wird sicher gelöscht
+12. Der First-Boot-Service deaktiviert sich selbst
+13. Der Pi startet neu
 
 Der gesamte Vorgang dauert ca. **5-10 Minuten** (Pi Zero W ist langsam).
 Nach dem Neustart ist Pi-hole erreichbar unter:
-- **Web UI:** http://192.168.178.69/admin
+- **Web UI:** http://192.168.178.69/admin (HTTP)
+- **Web UI:** https://192.168.178.69/admin (HTTPS, self-signed Zertifikat)
 - **DNS:** 192.168.178.69:53
 
 ## Validierung
@@ -321,10 +322,6 @@ Siehe [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) für häufige Probleme.
 | WLAN getrennt | Watchdog sollte automatisch reconnecten, `journalctl -u wlan-monitor` prüfen |
 | SD-Karten I/O-Fehler | Neues Image flashen, neue SD-Karte verwenden |
 | First-Boot hängt | Boot-Partition prüfen: ist `secrets.env` vorhanden? |
-
-## Changelog
-
-Siehe [docs/CHANGELOG.md](docs/CHANGELOG.md).
 
 ## Lizenz
 

@@ -430,8 +430,34 @@ if command -v pihole &>/dev/null; then
     else
         log_warn "Gravity-Update fehlgeschlagen (nachholbar mit: pihole -g)."
     fi
+
+    # Self-signed TLS-Zertifikat für Pi-hole HTTPS generieren.
+    # Combined PEM (Cert + Key) wie von Pi-hole v6 FTL erwartet.
+    # SAN enthält IP + Hostname damit Browser und Fritz!Box kein SNI-Problem haben.
+    PIHOLE_CERT="/etc/pihole/tls.pem"
+    log_info "Generiere self-signed TLS-Zertifikat für HTTPS..."
+    # ECDSA P-256: erzeugt TLS-Zertifikat in <1s statt ~60s (RSA-2048).
+    # ARMv6 hat keine Crypto-Hardware – RSA-Keygen würde die CPU für ~60s auf >2.0 Load treiben.
+    if openssl req -x509 \
+        -newkey ec \
+        -pkeyopt ec_paramgen_curve:P-256 \
+        -keyout /tmp/pihole-key.pem \
+        -out /tmp/pihole-cert.pem \
+        -days 3650 \
+        -nodes \
+        -subj "/CN=${PI_HOSTNAME}/O=Pi-hole/C=DE" \
+        -addext "subjectAltName=IP:${PI_IP},DNS:${PI_HOSTNAME},DNS:${PI_HOSTNAME}.local" \
+        2>/dev/null; then
+        cat /tmp/pihole-cert.pem /tmp/pihole-key.pem >"${PIHOLE_CERT}"
+        chmod 640 "${PIHOLE_CERT}"
+        chown pihole:pihole "${PIHOLE_CERT}" 2>/dev/null || true
+        rm -f /tmp/pihole-key.pem /tmp/pihole-cert.pem
+        log_info "TLS-Zertifikat generiert: ${PIHOLE_CERT} (gültig 10 Jahre)"
+    else
+        log_warn "TLS-Zertifikat konnte nicht generiert werden – nur HTTP verfügbar."
+    fi
 else
-    log_warn "pihole-Befehl nicht gefunden – Passwort und Gravity übersprungen."
+    log_warn "pihole-Befehl nicht gefunden – Passwort, Gravity und TLS-Zertifikat übersprungen."
 fi
 
 phase_end_or_skip 5
@@ -520,8 +546,10 @@ log_info "Setze Log2RAM Sync-Intervall auf stündlich..."
 mkdir -p /etc/systemd/system/log2ram-daily.timer.d
 cat >/etc/systemd/system/log2ram-daily.timer.d/override.conf <<'EOF'
 [Timer]
-OnCalendar=                  # Leere Zuweisung: überschreibt/löscht den Default-Wert
-OnCalendar=*-*-* *:00:00    # Stündlich zur vollen Stunde (statt täglich um 00:00)
+# Leere Zuweisung: überschreibt/löscht den Default-Wert
+OnCalendar=
+# Stündlich zur vollen Stunde (statt täglich um 00:00)
+OnCalendar=*-*-* *:00:00
 EOF
 log_info "Log2RAM Timer-Override geschrieben."
 

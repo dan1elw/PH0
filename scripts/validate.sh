@@ -18,7 +18,7 @@ trap 'echo ""; echo "Abbruch."; exit 130' INT TERM
 # Standardwerte aus secrets.env laden (falls vorhanden).
 # Underscore-Präfix kennzeichnet interne Defaults, die später durch
 # CLI-Argumente oder secrets.env-Werte überschrieben werden können.
-SECRETS_ENV="$(dirname "$0")/../secrets.env"
+SECRETS_ENV="$(dirname "${BASH_SOURCE[0]}")/../secrets.env"
 _DEFAULT_HOST="192.168.178.49"
 _DEFAULT_USER="pi"
 if [ -f "${SECRETS_ENV}" ]; then
@@ -180,8 +180,8 @@ if [ "${WAIT_MODE}" = true ]; then
 
     echo "[INFO] Warte auf pihole-FTL (Web UI + DNS)..."
     for i in $(seq 1 60); do
-        if curl -s -o /dev/null -w "%{http_code}" --connect-timeout 3 \
-            "http://${PI_HOST}/admin/" 2>/dev/null | grep -qE "200|302|301"; then
+        if curl -sk -o /dev/null -w "%{http_code}" --connect-timeout 3 \
+            "https://${PI_HOST}/admin/" 2>/dev/null | grep -qE "200|302|301"; then
             echo "[INFO] Pi-hole bereit nach weiteren $((i * 2))s."
             break
         fi
@@ -259,17 +259,20 @@ else
     test_skip "DNS-Blocking" "dig nicht installiert"
 fi
 
-# Pi-hole Web UI
-if curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 \
+# Pi-hole Web UI (HTTPS mit self-signed Zertifikat – daher -k)
+if curl -sk -o /dev/null -w "%{http_code}" --connect-timeout 5 \
+    "https://${PI_HOST}/admin/" 2>/dev/null | grep -qE "200|302|301"; then
+    test_pass "Pi-hole Web UI erreichbar (HTTPS)"
+elif curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 \
     "http://${PI_HOST}/admin/" 2>/dev/null | grep -qE "200|302|301"; then
-    test_pass "Pi-hole Web UI erreichbar"
+    test_pass "Pi-hole Web UI erreichbar (HTTP)"
 else
     test_fail "Pi-hole Web UI erreichbar"
 fi
 
 # Pi-hole API – jq läuft auf dem Pi via SSH
 if [ "${SSH_OK}" = true ]; then
-    if run_remote "curl -s --connect-timeout 5 http://localhost/api/info | jq -e '.' > /dev/null 2>&1 && echo ok" | grep -q "ok"; then
+    if run_remote "curl -sk --connect-timeout 5 https://localhost/api/info | jq -e '.' > /dev/null 2>&1 && echo ok" | grep -q "ok"; then
         test_pass "Pi-hole REST API"
     else
         test_fail "Pi-hole REST API"
@@ -400,10 +403,10 @@ fi
 echo ""
 echo "=========================================="
 printf " Ergebnis: ${GREEN}${PASSED} bestanden${NC}"
-if [ ${FAILED} -gt 0 ]; then
+if [ "${FAILED}" -gt 0 ]; then
     printf ", ${RED}${FAILED} fehlgeschlagen${NC}"
 fi
-if [ ${SKIPPED} -gt 0 ]; then
+if [ "${SKIPPED}" -gt 0 ]; then
     printf ", ${YELLOW}${SKIPPED} übersprungen${NC}"
 fi
 echo " (${TOTAL} Tests)"
@@ -411,7 +414,10 @@ echo "=========================================="
 echo ""
 
 PIHOLE_OK=false
-if curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 \
+if curl -sk -o /dev/null -w "%{http_code}" --connect-timeout 5 \
+    "https://${PI_HOST}/admin/" 2>/dev/null | grep -qE "200|302|301"; then
+    PIHOLE_OK=true
+elif curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 \
     "http://${PI_HOST}/admin/" 2>/dev/null | grep -qE "200|302|301"; then
     PIHOLE_OK=true
 fi
@@ -428,8 +434,8 @@ fi
 
 if [ "${PIHOLE_OK}" = true ]; then
     echo ""
-    echo "  Pi-hole Admin: http://${PI_HOST}/admin"
+    echo "  Pi-hole Admin: https://${PI_HOST}/admin  (self-signed Zertifikat: Browser-Ausnahme nötig)"
     echo ""
 fi
 
-[ ${FAILED} -gt 0 ] && exit 1 || exit 0
+if [ "${FAILED}" -gt 0 ]; then exit 1; else exit 0; fi

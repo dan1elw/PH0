@@ -21,6 +21,8 @@ sed -i 's/^#\?PubkeyAuthentication.*/PubkeyAuthentication yes/' \
     "${ROOTFS_DIR}/etc/ssh/sshd_config" # Public-Key-Auth explizit aktivieren
 sed -i 's/^#\?MaxAuthTries.*/MaxAuthTries 3/' \
     "${ROOTFS_DIR}/etc/ssh/sshd_config" # Brute-Force-Schutz: max. 3 Versuche
+sed -i 's/^#\?Banner.*/Banner none/' \
+    "${ROOTFS_DIR}/etc/ssh/sshd_config" # userconf-pi Banner unterdrücken (Key-Only)
 
 # ============================================================
 # Firewall (nftables)
@@ -44,6 +46,8 @@ table inet filter {
         tcp dport 53 ct state new accept
         udp dport 53 accept
         tcp dport 80 ct state new accept
+        tcp dport 443 ct state new accept  # HTTPS Pi-hole Web UI
+        udp dport 5353 accept              # mDNS (Avahi): Hostname + HTTPS-Link in Fritz!Box
 
         log prefix "nftables-drop: " flags all counter drop
     }
@@ -102,8 +106,8 @@ EOF
 # ============================================================
 rm -f "${ROOTFS_DIR}/etc/systemd/system/multi-user.target.wants/bluetooth.service" 2>/dev/null || true
 rm -f "${ROOTFS_DIR}/etc/systemd/system/multi-user.target.wants/hciuart.service" 2>/dev/null || true
-rm -f "${ROOTFS_DIR}/etc/systemd/system/multi-user.target.wants/avahi-daemon.service" 2>/dev/null || true
 rm -f "${ROOTFS_DIR}/etc/systemd/system/multi-user.target.wants/triggerhappy.service" 2>/dev/null || true
+# avahi-daemon bleibt aktiv: Fritz!Box erkennt Hostname und HTTP-Link via mDNS
 
 # Bluetooth Kernel-Module blockieren
 cat >"${ROOTFS_DIR}/etc/modprobe.d/disable-bluetooth.conf" <<'EOF'
@@ -130,3 +134,27 @@ dtparam=watchdog=on
 EOF
     fi
 fi
+
+# ============================================================
+# Avahi: HTTP-Service-Datei für Fritz!Box-Integration
+# ============================================================
+# Fritz!Box zeigt einen klickbaren Link zur Pi-hole Admin-Seite,
+# sobald Avahi den HTTP-Service via mDNS ankündigt.
+mkdir -p "${ROOTFS_DIR}/etc/avahi/services"
+cat >"${ROOTFS_DIR}/etc/avahi/services/pihole-http.service" <<'EOF'
+<?xml version="1.0" standalone='no'?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<service-group>
+  <name replace-wildcards="yes">Pi-hole Admin (%h)</name>
+  <service>
+    <type>_https._tcp</type>
+    <port>443</port>
+    <txt-record>path=/admin</txt-record>
+  </service>
+  <service>
+    <type>_http._tcp</type>
+    <port>80</port>
+    <txt-record>path=/admin</txt-record>
+  </service>
+</service-group>
+EOF

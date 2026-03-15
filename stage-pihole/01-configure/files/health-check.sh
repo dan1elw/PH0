@@ -63,10 +63,10 @@ mem_available=$(awk '/MemAvailable/ {print $2}' /proc/meminfo)
 mem_total=$(awk '/MemTotal/ {print $2}' /proc/meminfo)
 mem_percent=$((100 * mem_available / mem_total))
 
-if [ ${mem_percent} -lt 10 ]; then
+if [ "${mem_percent}" -lt 10 ]; then
     mem_status="CRITICAL (${mem_percent}% frei)"
     log_err "Kritisch wenig RAM verfügbar: ${mem_percent}% (${mem_available} kB)"
-elif [ ${mem_percent} -lt 20 ]; then
+elif [ "${mem_percent}" -lt 20 ]; then
     mem_status="WARNING (${mem_percent}% frei)"
     log_warn "Wenig RAM verfügbar: ${mem_percent}% (${mem_available} kB)"
 else
@@ -77,13 +77,13 @@ fi
 # 4. CPU-Temperatur
 # ============================================================
 if [ -f /sys/class/thermal/thermal_zone0/temp ]; then
-    temp_raw=$(cat /sys/class/thermal/thermal_zone0/temp)
+    temp_raw=$(</sys/class/thermal/thermal_zone0/temp)
     temp_c=$((temp_raw / 1000))
 
-    if [ ${temp_c} -gt 75 ]; then
+    if [ "${temp_c}" -gt 75 ]; then
         temp_status="CRITICAL (${temp_c}°C)"
         log_err "CPU-Temperatur kritisch: ${temp_c}°C"
-    elif [ ${temp_c} -gt 65 ]; then
+    elif [ "${temp_c}" -gt 65 ]; then
         temp_status="WARNING (${temp_c}°C)"
         log_warn "CPU-Temperatur erhöht: ${temp_c}°C"
     else
@@ -96,7 +96,7 @@ fi
 # ============================================================
 # 5. SD-Karte (Dateisystem-Fehler prüfen)
 # ============================================================
-if dmesg | tail -50 | grep -qi "i/o error\|read-only\|ext4-fs error"; then
+if dmesg | tail -50 | grep -Eqi "i/o error|read-only|ext4-fs error"; then
     sd_status="WARNING"
     log_warn "Mögliche SD-Karten-Probleme in dmesg erkannt!"
 else
@@ -120,7 +120,7 @@ fi
 # ============================================================
 summary="DNS=${dns_status} FTL=${ftl_status} RAM=${mem_status} TEMP=${temp_status} SD=${sd_status} LOG2RAM=${log2ram_status}"
 
-if [ ${ERRORS} -eq 0 ]; then
+if [ "${ERRORS}" -eq 0 ]; then
     log_info "Health-Check OK: ${summary}"
 else
     log_err "Health-Check: ${ERRORS} Fehler! ${summary}"
@@ -140,4 +140,4 @@ echo "${timestamp} | ${summary}" >>"${HEALTH_LOG}"
 
 # Non-zero Exit-Code veranlasst systemd die Unit als failed zu markieren –
 # das ist gewollt: journalctl zeigt dann "health-check.service: Failed".
-exit ${ERRORS}
+exit "${ERRORS}"

@@ -28,7 +28,13 @@
     domain = "fritz.box"
 
 [webserver]
-  port = "80o"
+  # 80o = HTTP optional (bleibt für Kompatibilität)
+  # 443s = HTTPS mit TLS (Zertifikat wird beim First Boot generiert)
+  port = "80o,443s"
+
+  [webserver.tls]
+    # Combined PEM (Zertifikat + privater Schlüssel) – generiert beim First Boot
+    cert = "/etc/pihole/tls.pem"
 
   [webserver.api]
     # Passwort wird beim First Boot via secrets.env gesetzt
@@ -56,8 +62,12 @@
     file = "/var/log/pihole/pihole.log"
 
 [database]
-  # Query-Datenbank – Retention auf 1 Tag setzen (RAM-Budget schonen)
-  maxDBDays = 1
+  # Query-Datenbank deaktiviert (maxDBDays=0): verhindert SQLite-Schreibzugriffe
+  # auf die SD-Karte. FTL hält aktuelle Statistiken im RAM (bis zum Neustart).
+  # Hintergrund: pihole-FTL schreibt bei aktivierter DB jede DNS-Anfrage via
+  # SQLite WAL auf /etc/pihole/pihole-FTL.db → hohe sys%/wa% auf ARMv6 ohne
+  # Hardware-Crypto. Mit maxDBDays=0 entfallen alle DB-Schreibzugriffe.
+  maxDBDays = 0
 
 [dhcp]
   # DHCP deaktiviert – wird vom Router gehandhabt

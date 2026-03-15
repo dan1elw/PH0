@@ -18,7 +18,7 @@ trap 'echo ""; echo "Abbruch."; exit 130' INT TERM
 # Standardwerte aus secrets.env laden (falls vorhanden).
 # Underscore-Präfix kennzeichnet interne Defaults, die später durch
 # CLI-Argumente oder secrets.env-Werte überschrieben werden können.
-SECRETS_ENV="$(dirname "$0")/../secrets.env"
+SECRETS_ENV="$(dirname "${BASH_SOURCE[0]}")/../secrets.env"
 _DEFAULT_HOST="192.168.178.49"
 _DEFAULT_USER="pi"
 if [ -f "${SECRETS_ENV}" ]; then
@@ -403,10 +403,10 @@ fi
 echo ""
 echo "=========================================="
 printf " Ergebnis: ${GREEN}${PASSED} bestanden${NC}"
-if [ ${FAILED} -gt 0 ]; then
+if [ "${FAILED}" -gt 0 ]; then
     printf ", ${RED}${FAILED} fehlgeschlagen${NC}"
 fi
-if [ ${SKIPPED} -gt 0 ]; then
+if [ "${SKIPPED}" -gt 0 ]; then
     printf ", ${YELLOW}${SKIPPED} übersprungen${NC}"
 fi
 echo " (${TOTAL} Tests)"
@@ -438,4 +438,4 @@ if [ "${PIHOLE_OK}" = true ]; then
     echo ""
 fi
 
-[ ${FAILED} -gt 0 ] && exit 1 || exit 0
+if [ "${FAILED}" -gt 0 ]; then exit 1; else exit 0; fi

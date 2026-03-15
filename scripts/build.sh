@@ -178,8 +178,10 @@ if [ "${USE_DOCKER}" = true ]; then
     if ! docker ps >/dev/null 2>&1 || docker info 2>/dev/null | grep -q rootless; then
         DOCKER_CMD="sudo docker"
     fi
+    # shellcheck disable=SC2086  # DOCKER_CMD darf auf "sudo docker" splitten
     if ${DOCKER_CMD} ps -a --filter name=pigen_work -q | grep -q .; then
         echo "Entferne alten pigen_work Container..."
+        # shellcheck disable=SC2086
         ${DOCKER_CMD} rm -v pigen_work >/dev/null
     fi
 

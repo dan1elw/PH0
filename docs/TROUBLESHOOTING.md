@@ -59,10 +59,10 @@ Symptom: Pi startet, aber SSH/DNS nicht erreichbar nach 5 Minuten.
 
 ```bash
 # Prüfe ob SSH läuft
-nmap -p 22 192.168.178.49
+nmap -p 22 192.168.178.69
 
 # Key-Probleme:
-ssh -v pi@192.168.178.49  # Verbose für Debug-Output
+ssh -v pi@192.168.178.69  # Verbose für Debug-Output
 ```
 
 Falls Passwort-Authentifizierung benötigt wird (Notfall):
@@ -101,7 +101,7 @@ pihole -w example.com
 pihole -b tracking.example.com
 
 # Query-Log prüfen:
-# Web UI: http://192.168.178.49/admin → Query Log
+# Web UI: http://192.168.178.69/admin → Query Log
 ```
 
 ### Gravity-Update schlägt fehl
@@ -215,6 +215,6 @@ ip addr show wlan0
 nmcli connection show pihole-wifi
 
 # IP manuell korrigieren
-nmcli connection modify pihole-wifi ipv4.addresses "192.168.178.49/24"
+nmcli connection modify pihole-wifi ipv4.addresses "192.168.178.69/24"
 nmcli connection up pihole-wifi
 ```

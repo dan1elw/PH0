@@ -99,7 +99,7 @@ done
 
 WIFI_COUNTRY="${WIFI_COUNTRY:-DE}"
 PI_HOSTNAME="${PI_HOSTNAME:-pihole}"
-PI_IP="${PI_IP:-192.168.178.49}"
+PI_IP="${PI_IP:-192.168.178.69}"
 PI_GATEWAY="${PI_GATEWAY:-192.168.178.1}"
 PI_PREFIX="${PI_PREFIX:-24}"
 
@@ -446,7 +446,7 @@ if command -v pihole &>/dev/null; then
         -days 3650 \
         -nodes \
         -subj "/CN=${PI_HOSTNAME}/O=Pi-hole/C=DE" \
-        -addext "subjectAltName=IP:${PI_IP},DNS:${PI_HOSTNAME},DNS:${PI_HOSTNAME}.local" \
+        -addext "subjectAltName=IP:${PI_IP},DNS:${PI_HOSTNAME},DNS:${PI_HOSTNAME}.local,DNS:pi.hole" \
         2>/dev/null; then
         cat /tmp/pihole-cert.pem /tmp/pihole-key.pem >"${PIHOLE_CERT}"
         chmod 640 "${PIHOLE_CERT}"

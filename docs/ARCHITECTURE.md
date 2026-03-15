@@ -80,7 +80,7 @@ Internet
     │
     ▼
 ┌──────────┐     ┌──────────────────────────────────┐
-│  Router  │────▶│  Pi Zero W (192.168.178.49)      │
+│  Router  │────▶│  Pi Zero W (192.168.178.69)      │
 │ (Gateway)│◀────│                                  │
 │ .178.1   │     │  Port 53: Pi-hole FTL (DNS)      │
 └──────────┘     │  Port 80: Pi-hole Web UI + API   │

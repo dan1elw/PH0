@@ -74,7 +74,7 @@ nano secrets.env  # Werte ausfüllen
 ./scripts/flash.sh /dev/sdX
 
 # 5. Erststart – Pi mit Netzwerk verbinden und booten
-# Der First-Boot-Service installiert Pi-hole + Log2RAM und konfiguriert alles. Das dauert ca. 5-10 Minuten. Danach ist Pi-hole erreichbar unter der konfigurierten IP Addresse: http://192.168.178.49/admin (default)
+# Der First-Boot-Service installiert Pi-hole + Log2RAM und konfiguriert alles. Das dauert ca. 5-10 Minuten. Danach ist Pi-hole erreichbar unter der konfigurierten IP Addresse: http://192.168.178.69/admin (default)
 ./scripts/validate.sh --wait
 ```
 
@@ -88,7 +88,7 @@ nano secrets.env  # Werte ausfüllen
                        │ Flash auf SD-Karte
                        ▼
 ┌──────────────────────────────────────────────────────┐
-│         Raspberry Pi Zero W (192.168.178.49)         │
+│         Raspberry Pi Zero W (192.168.178.69)         │
 │         Raspberry Pi OS Lite (Bookworm, armhf)       │
 │                                                      │
 │  ┌────────────┐  ┌────────────┐  ┌────────────────┐  │
@@ -178,13 +178,13 @@ Folgende Werte müssen gesetzt werden:
 | `SSH_PUBLIC_KEY` | Ja | Öffentlicher SSH-Schlüssel | `ssh-ed25519 AAAA...` |
 | `WIFI_COUNTRY` | Nein | WLAN-Ländercode (Standard: `DE`) | `DE` |
 | `PI_HOSTNAME` | Nein | Hostname des Pi (Standard: `pihole`) | `pihole` |
-| `PI_IP` | Nein | Statische IP (Standard: `192.168.178.49`) | `192.168.178.49` |
+| `PI_IP` | Nein | Statische IP (Standard: `192.168.178.69`) | `192.168.178.69` |
 | `PI_GATEWAY` | Nein | Gateway/Router (Standard: `192.168.178.1`) | `192.168.178.1` |
 | `PI_PREFIX` | Nein | Subnetz-Präfix (Standard: `24`) | `24` |
 
 ### Statische IP
 
-Die statische IP ist über `PI_IP` in `secrets.env` konfigurierbar (Default: `192.168.178.49/24`).
+Die statische IP ist über `PI_IP` in `secrets.env` konfigurierbar (Default: `192.168.178.69/24`).
 
 ## Image bauen
 
@@ -245,8 +245,8 @@ Beim ersten Boot passiert automatisch:
 
 Der gesamte Vorgang dauert ca. **5-10 Minuten** (Pi Zero W ist langsam).
 Nach dem Neustart ist Pi-hole erreichbar unter:
-- **Web UI:** http://192.168.178.49/admin
-- **DNS:** 192.168.178.49:53
+- **Web UI:** http://192.168.178.69/admin
+- **DNS:** 192.168.178.69:53
 
 ## Validierung
 
@@ -263,7 +263,7 @@ Nach dem Erststart:
 ./scripts/validate.sh 192.168.178.50 meinuser
 
 # Oder manuell:
-ssh pi@192.168.178.49
+ssh pi@192.168.178.69
 
 # Auf dem Pi:
 pihole status
@@ -279,7 +279,7 @@ dig @127.0.0.1 google.com
 ### Pi-hole Update
 
 ```bash
-ssh pi@192.168.178.49
+ssh pi@192.168.178.69
 pihole -up
 ```
 
@@ -316,7 +316,7 @@ Siehe [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) für häufige Probleme.
 
 | Problem | Lösung |
 |---|---|
-| Pi-hole nicht erreichbar | `ssh pi@192.168.178.49`, `systemctl status pihole-FTL` |
+| Pi-hole nicht erreichbar | `ssh pi@192.168.178.69`, `systemctl status pihole-FTL` |
 | DNS-Auflösung fehlgeschlagen | `dig @127.0.0.1 google.com`, Upstream prüfen |
 | WLAN getrennt | Watchdog sollte automatisch reconnecten, `journalctl -u wlan-monitor` prüfen |
 | SD-Karten I/O-Fehler | Neues Image flashen, neue SD-Karte verwenden |

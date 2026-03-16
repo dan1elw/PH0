@@ -9,8 +9,8 @@
 # Pi-hole FTL ergänzt fehlende Werte automatisch mit Defaults.
 
 [dns]
-  # Upstream DNS Server (Cloudflare + Google als Fallback)
-  upstreams = ["1.1.1.1", "8.8.8.8"]
+  # Upstream DNS Server (Quad9 gefiltert + DNSSEC)
+  upstreams = ["9.9.9.9", "149.112.112.112"]
 
   # Interface auf dem Pi-hole lauscht
   # "all" = alle Interfaces (benötigt für Netzwerk-DNS)

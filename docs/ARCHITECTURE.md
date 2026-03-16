@@ -16,7 +16,7 @@ Pi-hole FTL (Faster Than Light) ist der zentrale DNS-Server. Ab Version 6 nutzt 
 TOML-basierte Konfiguration (`/etc/pihole/pihole.toml`) statt der bisherigen `setupVars.conf`.
 
 Konfigurationsentscheidungen:
-- **Upstream DNS:** Cloudflare (1.1.1.1) + Google (8.8.8.8) als Fallback
+- **Upstream DNS:** Quad9 gefiltert + DNSSEC (9.9.9.9 + 149.112.112.112)
 - **DNSSEC:** Aktiviert für DNS-Antwort-Validierung
 - **Listening Mode:** `all` – notwendig damit das gesamte LAN den Pi als DNS nutzen kann
 - **Query-Datenbank deaktiviert** (`DBimport = false`) – reduziert SD-Karten-Schreibzugriffe

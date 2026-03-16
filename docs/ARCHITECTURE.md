@@ -19,7 +19,8 @@ Konfigurationsentscheidungen:
 - **Upstream DNS:** Cloudflare (1.1.1.1) + Google (8.8.8.8) als Fallback
 - **DNSSEC:** Aktiviert für DNS-Antwort-Validierung
 - **Listening Mode:** `all` – notwendig damit das gesamte LAN den Pi als DNS nutzen kann
-- **Query-Log Retention:** 1 Tag – reduziert Datenbankgröße und RAM-Verbrauch
+- **Query-Datenbank deaktiviert** (`DBimport = false`) – reduziert SD-Karten-Schreibzugriffe
+- **Conditional Forwarding:** PTR-Anfragen für `192.168.178.0/24` werden an Fritz!Box (`192.168.178.1`) weitergeleitet, damit Hostnamen im LAN aufgelöst werden
 - **DHCP:** Deaktiviert – wird vom Router (Fritz!Box) gehandhabt
 
 ### Log2RAM
@@ -53,24 +54,30 @@ Ein Webhook-Aufruf bei Fehler ist vorbereitet (auskommentiert).
 ### First-Boot-Service
 
 Einmaliger systemd-Service mit `ConditionPathExists=/boot/firmware/secrets.env`.
+Sucht `secrets.env` zuerst unter `/boot/firmware/` (Bookworm), dann unter `/boot/` (ältere Kernels).
 Ablauf:
 1. `secrets.env` von Boot-Partition lesen
 2. Hostname setzen
-3. WiFi via NetworkManager konfigurieren (inkl. statische IP)
-4. SSH Public Key deployen
-5. Pi-hole Admin-Passwort setzen
-6. `secrets.env` sicher löschen (`shred`)
-7. Service deaktiviert sich selbst
-8. Neustart
+3. Benutzer anlegen / umbenennen, Passwort setzen
+4. WiFi via NetworkManager konfigurieren (inkl. statische IP)
+5. SSH Public Key deployen
+6. Pi-hole v6 installieren (unattended), Admin-Passwort setzen, Gravity laden
+7. Self-signed ECDSA-TLS-Zertifikat für HTTPS generieren (`pi.hole`, Hostname, IP als SAN)
+8. Log2RAM installieren, Sync-Intervall auf stündlich setzen
+9. Services aktivieren (wlan-monitor, health-check.timer)
+10. `secrets.env` sicher löschen (`shred`)
+11. Service deaktiviert sich selbst
+12. Neustart
 
 ### Härtung
 
 - **SSH:** Key-Only, kein Passwort-Login, kein Root-Login, MaxAuthTries=3
-- **Firewall:** nftables mit Default-Drop Policy, nur 22/tcp, 53/tcp+udp, 80/tcp, ICMP
+- **Firewall:** nftables mit Default-Drop Policy; erlaubt: 22/tcp (SSH), 53/tcp+udp (DNS), 80/tcp (HTTP), 443/tcp (HTTPS), 5353/udp (mDNS), ICMP/ICMPv6
 - **tmpfs:** `/tmp` (30 MB) und `/var/tmp` (10 MB) im RAM
 - **Swap:** Deaktiviert (kein dphys-swapfile)
 - **Kernel-Tuning:** Dirty Writeback auf 60s, Swappiness=1
-- **Unnötige Services deaktiviert:** Bluetooth, Avahi, Triggerhappy
+- **Services deaktiviert:** Bluetooth, Triggerhappy
+- **Avahi aktiv:** mDNS-Advertisement damit Router (Fritz!Box) den Hostnamen `pihole.local` auflösen kann
 - **HDMI deaktiviert:** Strom sparen im Headless-Betrieb
 
 ## Datenfluss
@@ -80,14 +87,15 @@ Internet
     │
     ▼
 ┌──────────┐     ┌──────────────────────────────────┐
-│  Router  │────▶│  Pi Zero W (192.168.178.49)      │
+│  Router  │────▶│  Pi Zero W (192.168.178.69)      │
 │ (Gateway)│◀────│                                  │
 │ .178.1   │     │  Port 53: Pi-hole FTL (DNS)      │
 └──────────┘     │  Port 80: Pi-hole Web UI + API   │
-    │            │  Port 22: SSH                    │
-    ▼            └──────────────────────────────────┘
- LAN Geräte               │
- (DNS: ...178.49)         │ REST API (Port 80/api)
+    │            │  Port 443: HTTPS                 │
+    ▼            │  Port 22: SSH                    │
+ LAN Geräte      └──────────────────────────────────┘
+ (DNS: ...178.69)         │
+                          │ REST API (Port 80+443/api)
                           ▼
                   [Optional: Home Assistant]
                   (Polling via Pi-hole Integration)

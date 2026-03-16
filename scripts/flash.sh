@@ -190,8 +190,8 @@ if [ ! -f "${SECRETS_FILE}" ]; then
     exit 1
 fi
 
-PI_IP=$(grep -E "^PI_IP=" "${SECRETS_FILE}" 2>/dev/null | cut -d'=' -f2 || echo "192.168.178.49")
-PI_IP="${PI_IP:-192.168.178.49}"
+PI_IP=$(grep -E "^PI_IP=" "${SECRETS_FILE}" 2>/dev/null | cut -d'=' -f2 || echo "192.168.178.69")
+PI_IP="${PI_IP:-192.168.178.69}"
 
 # ============================================================
 # Bestätigung

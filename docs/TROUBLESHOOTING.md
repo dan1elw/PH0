@@ -2,6 +2,121 @@
 
 > **Hinweis:** Dieses Dokument wurde mit Unterstützung von KI (Claude/Anthropic) erstellt.
 
+## Logs lesen
+
+### Systemd Journal – Grundbefehle
+
+```bash
+# Gesamtes Journal des aktuellen Boots
+journalctl -b
+
+# Letzter Boot (vor dem aktuellen Neustart)
+journalctl -b -1
+
+# Alle gespeicherten Boots auflisten
+journalctl --list-boots
+
+# Live-Stream neuer Log-Einträge
+journalctl -f
+```
+
+### First-Boot-Log
+
+```bash
+# Vollständiges First-Boot-Protokoll (zeigt Installations- und Konfigurationsschritte)
+journalctl -u first-boot.service --no-pager
+
+# Nur die letzten 100 Zeilen
+journalctl -u first-boot.service --no-pager -n 100
+```
+
+### Letzter Neustart – Ursache ermitteln
+
+```bash
+# Reboot-Historie (Zeitpunkt, Dauer, Ursache)
+last reboot
+
+# Journal des letzten Boots vor dem aktuellen
+journalctl -b -1 --no-pager -n 100
+
+# Kernel-Meldungen rund um den letzten Shutdown
+journalctl -b -1 -k --no-pager | tail -50
+```
+
+### Watchdog-Logs
+
+```bash
+# Hardware-Watchdog und systemd-Watchdog-Ereignisse
+journalctl -u watchdog --no-pager -n 50
+
+# Kernel-Meldungen zum Watchdog-Reset
+dmesg | grep -i watchdog
+
+# WLAN-Monitor (Reconnect-Versuche, Reboot-Eskalationen)
+journalctl -u wlan-monitor --no-pager -n 50
+```
+
+### Pi-hole-Logs
+
+```bash
+# FTL-Service-Log (Starts, Fehler, Konfigurationsprobleme)
+journalctl -u pihole-FTL --no-pager -n 50
+
+# Live-DNS-Query-Log
+pihole -t
+
+# Vollständiges Pi-hole Debug-Paket (für Support-Anfragen)
+pihole -d
+
+# Pi-hole FTL Logdatei direkt
+tail -f /var/log/pihole/FTL.log
+
+# Pi-hole Gravity/Blocklisten-Log
+tail -f /var/log/pihole/pihole.log
+```
+
+### Health-Check-Log
+
+```bash
+# Health-Check-Timer Status (wann zuletzt ausgeführt, nächste Ausführung)
+systemctl status health-check.timer
+
+# Health-Check-Journal (alle Prüfläufe mit Ergebnis)
+journalctl -u health-check --no-pager -n 50
+
+# Health-Check-Logdatei (persistiert auf SD-Karte, auch nach Neustart)
+tail -50 /var/log/pihole-health.log
+
+# Live-Mitverfolgen
+tail -f /var/log/pihole-health.log
+```
+
+### Kernel- und Hardware-Logs
+
+```bash
+# Kernel-Ring-Buffer (I/O-Fehler, WLAN-Treiber, Watchdog)
+dmesg | less
+
+# SD-Karten-Fehler filtern
+dmesg | grep -i "i/o error\|mmc\|mmcblk"
+
+# Temperatur und Spannung (nur auf dem Pi)
+vcgencmd measure_temp
+vcgencmd get_throttled  # 0x0 = alles OK, sonst Drosselung/Unterspannung
+```
+
+### Alle relevanten Services auf einen Blick
+
+```bash
+# Übersicht fehlgeschlagener Units
+systemctl --failed
+
+# Status aller Pi-hole-relevanten Services
+systemctl status pihole-FTL log2ram wlan-monitor health-check.timer first-boot
+```
+
+---
+
 ## Build-Probleme
 
 ### Build bricht mit "No space left on device" ab
@@ -59,10 +174,10 @@ Symptom: Pi startet, aber SSH/DNS nicht erreichbar nach 5 Minuten.
 
 ```bash
 # Prüfe ob SSH läuft
-nmap -p 22 192.168.178.49
+nmap -p 22 192.168.178.69
 
 # Key-Probleme:
-ssh -v pi@192.168.178.49  # Verbose für Debug-Output
+ssh -v pi@192.168.178.69  # Verbose für Debug-Output
 ```
 
 Falls Passwort-Authentifizierung benötigt wird (Notfall):
@@ -101,7 +216,7 @@ pihole -w example.com
 pihole -b tracking.example.com
 
 # Query-Log prüfen:
-# Web UI: http://192.168.178.49/admin → Query Log
+# Web UI: http://192.168.178.69/admin → Query Log
 ```
 
 ### Gravity-Update schlägt fehl
@@ -215,6 +330,6 @@ ip addr show wlan0
 nmcli connection show pihole-wifi
 
 # IP manuell korrigieren
-nmcli connection modify pihole-wifi ipv4.addresses "192.168.178.49/24"
+nmcli connection modify pihole-wifi ipv4.addresses "192.168.178.69/24"
 nmcli connection up pihole-wifi
 ```

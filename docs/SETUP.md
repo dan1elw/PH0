@@ -44,7 +44,7 @@ SSH_PUBLIC_KEY=ssh-ed25519 AAAA... user@host
 
 # Optional:
 PI_HOSTNAME=pihole
-PI_IP=192.168.178.49
+PI_IP=192.168.178.69
 PI_GATEWAY=192.168.178.1
 PI_PREFIX=24
 ```
@@ -102,11 +102,11 @@ und kopiert `secrets.env` auf die Boot-Partition.
 
 ## Schritt 7: Router konfigurieren
 
-Konfiguriere deinen Router so, dass `192.168.178.49` als primärer DNS-Server
+Konfiguriere deinen Router so, dass `192.168.178.69` als primärer DNS-Server
 für alle Geräte im LAN verwendet wird. Setze den Router selbst (z.B. `192.168.178.1`)
 als sekundären DNS – so funktioniert DNS auch wenn der Pi ausfällt.
 
 Für Fritz!Box:
 1. Internet → DNS-Server → Lokaler DNS-Server
-2. Bevorzugter DNS: `192.168.178.49`
+2. Bevorzugter DNS: `192.168.178.69`
 3. Alternativer DNS: `192.168.178.1` (oder ein öffentlicher wie `1.1.1.1`)

@@ -19,7 +19,7 @@ trap 'echo ""; echo "Abbruch."; exit 130' INT TERM
 # Underscore-Präfix kennzeichnet interne Defaults, die später durch
 # CLI-Argumente oder secrets.env-Werte überschrieben werden können.
 SECRETS_ENV="$(dirname "${BASH_SOURCE[0]}")/../secrets.env"
-_DEFAULT_HOST="192.168.178.49"
+_DEFAULT_HOST="192.168.178.69"
 _DEFAULT_USER="pi"
 if [ -f "${SECRETS_ENV}" ]; then
     # shellcheck source=/dev/null

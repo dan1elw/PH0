@@ -26,6 +26,9 @@ journalctl -f
 # Vollständiges First-Boot-Protokoll (zeigt Installations- und Konfigurationsschritte)
 journalctl -u first-boot.service --no-pager
 
+# oder
+sudo cat /var/log/first-boot.log
+
 # Nur die letzten 100 Zeilen
 journalctl -u first-boot.service --no-pager -n 100
 ```

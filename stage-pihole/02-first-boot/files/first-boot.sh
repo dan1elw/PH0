@@ -424,6 +424,8 @@ if command -v pihole &>/dev/null; then
         log_warn "Pi-hole Passwort konnte nicht gesetzt werden – bitte manuell setzen."
     fi
 
+    # Adlists werden vom Pi-hole Installer automatisch aus /etc/pihole/adlists.list
+    # in gravity.db migriert – keine manuelle Aktion nötig.
     log_info "Lade Pi-hole Gravity (Blocklisten)..."
     if pihole -g; then
         log_info "Gravity-Update erfolgreich."

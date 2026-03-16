@@ -61,7 +61,7 @@ jobs:
         run: |
           # config Datei kopieren – IMG_NAME um Uhrzeit ergänzen (HHMM)
           cp config pi-gen-build/config
-          sed -i "s/^IMG_NAME=.*/IMG_NAME=$(date '+%H%M')-pihole-zerow/" pi-gen-build/config
+          sed -i "s/^IMG_NAME=.*/IMG_NAME=$(date '+%H%M')-ph0/" pi-gen-build/config
 
           # Custom Stage kopieren
           cp -a stage-pihole pi-gen-build/stage-pihole
@@ -105,19 +105,46 @@ jobs:
           body: |
             ## PH0 Release ${{ github.ref_name }}
 
+            Reproduzierbares Raspberry Pi OS Image mit Pi-hole v6 für den Raspberry Pi Zero W.
+            Alle Konfigurationen sind versioniert – bei SD-Karten-Ausfall einfach neu flashen.
+
             ### Enthaltene Komponenten
-            - Raspberry Pi OS Lite (Bookworm, armhf)
-            - Pi-hole v6 (DNS + Ad-Blocking) – wird beim First Boot installiert
-            - Log2RAM (SD-Karten-Schutz) – wird beim First Boot installiert
-            - Hardware-Watchdog + WLAN-Monitor + Health-Check
-            - nftables Firewall
-            - SSH (Key-Only)
+
+            **DNS & Blocking**
+            - Pi-hole v6 (FTL) – wird beim First Boot installiert
+            - Upstream DNS: Quad9 gefiltert + DNSSEC (9.9.9.9 / 149.112.112.112)
+            - 5 vorkonfigurierte Blocklisten: StevenBlack, OISD Small, HaGeZi Multi, EasyList Germany, StevenBlack Fakenews+Gambling+Porn
+
+            **SD-Karten-Schutz**
+            - Log2RAM (50 MB) – `/var/log` im RAM, stündliche Synchronisation; wird beim First Boot installiert
+            - tmpfs für `/tmp` (30 MB) und `/var/tmp` (10 MB)
+            - Swap deaktiviert
+            - FTL Query-Datenbank deaktiviert (`maxDBDays = 0`)
+
+            **Watchdog-Stack**
+            - Hardware-Watchdog (`bcm2835_wdt`, 10s Timeout)
+            - WLAN-Monitor: prüft alle 30s die Gateway-Erreichbarkeit, Reboot-Eskalation nach 5 Fehlversuchen
+            - Health-Check: systemd Timer alle 5 Min (DNS, FTL, RAM, Temperatur, SD-Karten I/O)
+
+            **Sicherheit & Härtung**
+            - SSH: Key-Only, kein Passwort-Login, kein Root-Login
+            - HTTPS: self-signed ECDSA P-256 TLS-Zertifikat (10 Jahre, SAN: IP + Hostname + `pi.hole`) – wird beim First Boot generiert
+            - Firewall: nftables mit Default-Drop (erlaubt: 22, 53, 80, 443, 5353)
+            - Avahi: mDNS-Advertisement (`pihole.local`)
+            - Bluetooth + HDMI deaktiviert
+
+            **First-Boot-Service**
+            - Liest `secrets.env` von der Boot-Partition, setzt Hostname, User, WiFi, SSH-Key
+            - Installiert Pi-hole, Log2RAM, lädt Gravity (Blocklisten)
+            - Löscht `secrets.env` sicher nach Abschluss (`shred`)
 
             ### Verwendung
-            1. Image herunterladen und entpacken
-            2. `secrets.env` erstellen (siehe `secrets.env.example`)
-            3. Image auf SD-Karte flashen: `./scripts/flash.sh /dev/sdX`
-            4. Pi booten – First-Boot konfiguriert und installiert alles automatisch (5-10 Min)
+            1. `secrets.env` erstellen: `cp secrets.env.example secrets.env` und Werte eintragen
+            2. Image herunterladen und auf SD-Karte flashen: `./scripts/flash.sh /dev/sdX`
+               _(das Script entpackt das Image und kopiert `secrets.env` automatisch auf die Boot-Partition)_
+            3. Pi booten – First Boot konfiguriert und installiert alles automatisch (~5–10 Min)
+            4. Erreichbar unter: `http://<PI_IP>/admin` (HTTP) oder `https://<PI_IP>/admin` (HTTPS)
+            5. Optional: `./scripts/validate.sh --wait` zur Post-Boot-Validierung
 
             ### Zielgerät
             Raspberry Pi Zero W (ARMv6, 512 MB RAM)

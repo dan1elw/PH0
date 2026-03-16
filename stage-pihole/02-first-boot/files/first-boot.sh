@@ -424,6 +424,31 @@ if command -v pihole &>/dev/null; then
         log_warn "Pi-hole Passwort konnte nicht gesetzt werden – bitte manuell setzen."
     fi
 
+    # Zusätzliche Adlists in gravity.db eintragen (vor pihole -g, damit alle auf einmal kompiliert).
+    # Format jedes Eintrags: "URL|Kommentar"
+    # Neue Blocklisten einfach als weiteren Eintrag in das Array einfügen, z.B.:
+    #   "https://example.com/blocklist.txt|Beschreibung der Liste"
+    EXTRA_ADLISTS=(
+        "https://small.oisd.nl|OISD Small - general purpose, low false positives"
+        "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/multi.txt|HaGeZi Multi Normal"
+        "https://easylist.to/easylistgermany/easylistgermany.txt|EasyList Germany - Deutsche Werbenetzwerke und Tracker"
+    )
+    GRAVITY_DB="/etc/pihole/gravity.db"
+    if [ -f "${GRAVITY_DB}" ]; then
+        for entry in "${EXTRA_ADLISTS[@]}"; do
+            url="${entry%%|*}"
+            comment="${entry##*|}"
+            if sqlite3 "${GRAVITY_DB}" \
+                "INSERT OR IGNORE INTO adlist (address, enabled, comment) VALUES ('${url}', 1, '${comment}');"; then
+                log_info "Adlist eingetragen: ${url}"
+            else
+                log_warn "Adlist konnte nicht eingetragen werden: ${url}"
+            fi
+        done
+    else
+        log_warn "gravity.db nicht gefunden – Adlists übersprungen."
+    fi
+
     log_info "Lade Pi-hole Gravity (Blocklisten)..."
     if pihole -g; then
         log_info "Gravity-Update erfolgreich."

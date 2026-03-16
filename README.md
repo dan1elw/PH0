@@ -290,6 +290,33 @@ pihole -up
 pihole -g
 ```
 
+### Blocklisten anpassen
+
+Die vorinstallierten Blocklisten werden beim First Boot automatisch eingetragen:
+
+| Liste | URL | Beschreibung |
+|---|---|---|
+| OISD Small | `https://small.oisd.nl` | Allgemein, sehr wenig False Positives |
+| HaGeZi Multi Normal | `https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/multi.txt` | Umfassend, Ads + Tracker |
+| EasyList Germany | `https://easylist.to/easylistgermany/easylistgermany.txt` | Deutsche Werbenetzwerke |
+
+**Weitere Listen hinzufügen** (vor dem ersten Build): In `stage-pihole/02-first-boot/files/first-boot.sh` das Array `EXTRA_ADLISTS` erweitern:
+
+```bash
+EXTRA_ADLISTS=(
+    ...
+    "https://example.com/blocklist.txt|Beschreibung der Liste"
+)
+```
+
+**Nachträglich im laufenden Betrieb** über die Pi-hole Web UI unter *Adlists* oder per CLI:
+
+```bash
+sqlite3 /etc/pihole/gravity.db \
+    "INSERT OR IGNORE INTO adlist (address, enabled, comment) VALUES ('https://example.com/list.txt', 1, 'Meine Liste');"
+pihole -g
+```
+
 ### Log2RAM Status prüfen
 
 ```bash

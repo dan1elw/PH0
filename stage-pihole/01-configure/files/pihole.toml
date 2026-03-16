@@ -19,6 +19,12 @@
   # DNSSEC aktivieren
   dnssec = true
 
+  # Single-Label-Namen (z.B. "router") nicht an Upstream weiterleiten
+  domainNeeded = true
+
+  # Reverse-Lookups für private IPs (192.168.x.x) nicht an Upstream weiterleiten
+  bogusPriv = true
+
   # Conditional Forwarding (für lokale Hostnamen via Router)
   # Anpassen falls der Router nicht 192.168.178.1 ist
   [dns.revServer]

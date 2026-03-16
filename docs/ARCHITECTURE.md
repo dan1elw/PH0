@@ -19,7 +19,9 @@ Konfigurationsentscheidungen:
 - **Upstream DNS:** Quad9 gefiltert + DNSSEC (9.9.9.9 + 149.112.112.112)
 - **DNSSEC:** Aktiviert für DNS-Antwort-Validierung
 - **Listening Mode:** `all` – notwendig damit das gesamte LAN den Pi als DNS nutzen kann
-- **Query-Datenbank deaktiviert** (`DBimport = false`) – reduziert SD-Karten-Schreibzugriffe
+- **domainNeeded:** Single-Label-Namen (z.B. `router`) werden nicht an Upstream weitergeleitet
+- **bogusPriv:** Reverse-Lookups für private IPs werden nicht an Upstream weitergeleitet
+- **Query-Datenbank deaktiviert** (`maxDBDays = 0`) – reduziert SD-Karten-Schreibzugriffe
 - **Conditional Forwarding:** PTR-Anfragen für `192.168.178.0/24` werden an Fritz!Box (`192.168.178.1`) weitergeleitet, damit Hostnamen im LAN aufgelöst werden
 - **DHCP:** Deaktiviert – wird vom Router (Fritz!Box) gehandhabt
 

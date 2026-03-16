@@ -1,7 +1,5 @@
 # Architektur – Pi-hole Immutable Image
 
-> **Hinweis:** Dieses Dokument wurde mit Unterstützung von KI (Claude/Anthropic) erstellt.
-
 ## Übersicht
 
 Dieses Projekt erzeugt ein reproduzierbares Raspberry Pi OS Image, das bei SD-Karten-Ausfall

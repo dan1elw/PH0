@@ -1,10 +1,13 @@
 # PH0 - Pi-hole for Raspberry Pi Zero
 
-> **Hinweis:** Dieses Projekt wurde mit Unterstützung von KI (Claude/Anthropic) erstellt.
-
 Reproduzierbares, versioniertes Raspberry Pi OS Image mit Pi-hole v6 als netzwerkweitem
 DNS-/Ad-Blocking-Server. Optimiert für den Raspberry Pi Zero W mit SD-Karten-Schutz,
 automatisiertem Watchdog-Stack und CI/CD-Pipeline via GitHub Actions.
+
+[![GitHub Release](https://img.shields.io/github/v/release/dan1elw/PH0)](https://github.com/dan1elw/PH0/releases/latest)
+[![Build](https://github.com/dan1elw/PH0/actions/workflows/build-image.yml/badge.svg)](https://github.com/dan1elw/PH0/actions/workflows/build-image.yml)
+[![Test](https://github.com/dan1elw/PH0/actions/workflows/lint-shell.yml/badge.svg)](https://github.com/dan1elw/PH0/actions/workflows/lint-shell.yml)
+[![License](https://img.shields.io/github/license/dan1elw/PH0)](LICENSE)
 
 ## Inhalt
 
@@ -349,6 +352,6 @@ Siehe [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) für häufige Probleme.
 | SD-Karten I/O-Fehler | Neues Image flashen, neue SD-Karte verwenden |
 | First-Boot hängt | Boot-Partition prüfen: ist `secrets.env` vorhanden? |
 
-## Lizenz
+## Disclaimer
 
-MIT License – siehe [LICENSE](LICENSE).
+Dieses Projekt wurde mit Unterstützung von KI (Claude/Anthropic) erstellt.

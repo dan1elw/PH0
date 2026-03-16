@@ -1,7 +1,5 @@
 # Ersteinrichtung – Setup Guide
 
-> **Hinweis:** Dieses Dokument wurde mit Unterstützung von KI (Claude/Anthropic) erstellt.
-
 ## Voraussetzungen
 
 - Git installiert

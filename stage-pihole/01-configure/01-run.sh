@@ -14,9 +14,15 @@ install -v -m 644 \
     "${STAGE_DIR}/01-configure/files/pihole.toml" \
     "${ROOTFS_DIR}/etc/pihole/pihole.toml"
 
+# Adlists: werden beim First Boot vom Pi-hole Installer in gravity.db migriert
+install -v -m 644 \
+    "${STAGE_DIR}/01-configure/files/adlists.list" \
+    "${ROOTFS_DIR}/etc/pihole/adlists.list"
+
 # Ownership setzen (pihole User wurde in 00-install-packages erstellt)
 on_chroot <<'CHEOF'
 chown pihole:pihole /etc/pihole/pihole.toml
+chown pihole:pihole /etc/pihole/adlists.list
 CHEOF
 
 # ============================================================

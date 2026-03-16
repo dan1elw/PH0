@@ -1,0 +1,9 @@
+# Pi-hole Adlists – werden beim First Boot vom Pi-hole Installer in gravity.db migriert.
+# Format: eine URL pro Zeile, Kommentare mit #
+# Neue Listen einfach als weitere Zeile einfügen.
+
+https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
+https://small.oisd.nl
+https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/multi.txt
+https://easylist.to/easylistgermany/easylistgermany.txt
+https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-gambling-porn/hosts

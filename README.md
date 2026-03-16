@@ -292,28 +292,27 @@ pihole -g
 
 ### Blocklisten anpassen
 
-Die vorinstallierten Blocklisten werden beim First Boot automatisch eingetragen:
+Die vorinstallierten Blocklisten sind in `stage-pihole/01-configure/files/adlists.list` definiert
+und werden beim First Boot vom Pi-hole Installer automatisch in gravity.db importiert:
 
-| Liste | URL | Beschreibung |
-|---|---|---|
-| OISD Small | `https://small.oisd.nl` | Allgemein, sehr wenig False Positives |
-| HaGeZi Multi Normal | `https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/multi.txt` | Umfassend, Ads + Tracker |
-| EasyList Germany | `https://easylist.to/easylistgermany/easylistgermany.txt` | Deutsche Werbenetzwerke |
+| Liste | Beschreibung |
+|---|---|
+| StevenBlack Hosts | Standard-Liste (Ads + Malware) |
+| OISD Small | Allgemein, sehr wenig False Positives |
+| HaGeZi Multi Normal | Umfassend, Ads + Tracker |
+| EasyList Germany | Deutsche Werbenetzwerke |
+| StevenBlack Fakenews+Gambling+Porn | Erweiterte Kategorien |
 
-**Weitere Listen hinzufügen** (vor dem ersten Build): In `stage-pihole/02-first-boot/files/first-boot.sh` das Array `EXTRA_ADLISTS` erweitern:
+**Weitere Listen hinzufügen** (vor dem ersten Build): `stage-pihole/01-configure/files/adlists.list` bearbeiten und eine URL pro Zeile eintragen:
 
-```bash
-EXTRA_ADLISTS=(
-    ...
-    "https://example.com/blocklist.txt|Beschreibung der Liste"
-)
+```
+https://example.com/blocklist.txt
 ```
 
 **Nachträglich im laufenden Betrieb** über die Pi-hole Web UI unter *Adlists* oder per CLI:
 
 ```bash
-sqlite3 /etc/pihole/gravity.db \
-    "INSERT OR IGNORE INTO adlist (address, enabled, comment) VALUES ('https://example.com/list.txt', 1, 'Meine Liste');"
+pihole allowlist --comment "Meine Liste" https://example.com/list.txt
 pihole -g
 ```
 

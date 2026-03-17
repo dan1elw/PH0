@@ -32,13 +32,19 @@ install -v -m 644 \
     "${STAGE_DIR}/01-configure/files/log2ram.conf" \
     "${ROOTFS_DIR}/etc/log2ram.conf"
 
-# journald: SystemMaxUse begrenzen (passend zu Log2RAM 50MB)
+# journald: persistente Logs aktivieren + Größe begrenzen (passend zu Log2RAM 50MB)
+# Storage=persistent: Logs in /var/log/journal (via Log2RAM im RAM, stündlich auf SD)
+# Ohne Storage=persistent bleibt journald volatile und Logs gehen beim Reboot verloren.
 mkdir -p "${ROOTFS_DIR}/etc/systemd/journald.conf.d"
 cat >"${ROOTFS_DIR}/etc/systemd/journald.conf.d/log2ram.conf" <<'EOF'
 [Journal]
+Storage=persistent
 SystemMaxUse=20M
 RuntimeMaxUse=20M
 EOF
+
+# /var/log/journal muss existieren damit journald persistent schreibt
+mkdir -p "${ROOTFS_DIR}/var/log/journal"
 
 # ============================================================
 # Hardware-Watchdog Konfiguration

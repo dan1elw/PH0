@@ -80,7 +80,7 @@ install -v -m 644 \
     "${ROOTFS_DIR}/etc/systemd/system/wlan-monitor.service"
 
 # ============================================================
-# Health-Check Script + Service + Timer
+# Health-Check Script + Service + Timer + Logrotate
 # ============================================================
 install -v -m 755 \
     "${STAGE_DIR}/01-configure/files/health-check.sh" \
@@ -93,6 +93,10 @@ install -v -m 644 \
 install -v -m 644 \
     "${STAGE_DIR}/01-configure/files/health-check.timer" \
     "${ROOTFS_DIR}/etc/systemd/system/health-check.timer"
+
+install -v -m 644 \
+    "${STAGE_DIR}/01-configure/files/pihole-health" \
+    "${ROOTFS_DIR}/etc/logrotate.d/pihole-health"
 
 # ============================================================
 # WiFi Country Code in config.txt (KRITISCH: ohne country= bleibt

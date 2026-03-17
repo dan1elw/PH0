@@ -1,7 +1,5 @@
 # Troubleshooting
 
-> **Hinweis:** Dieses Dokument wurde mit Unterstützung von KI (Claude/Anthropic) erstellt.
-
 ## Logs lesen
 
 ### Systemd Journal – Grundbefehle

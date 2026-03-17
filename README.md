@@ -31,7 +31,7 @@ automatisiertem Watchdog-Stack und CI/CD-Pipeline via GitHub Actions.
 - **Log2RAM** – Logs ins RAM, stündliche Synchronisation auf SD-Karte (50 MB)
 - **tmpfs** für `/tmp` und `/var/tmp` – keine temporären Dateien auf der SD-Karte
 - **Hardware-Watchdog** (`bcm2835_wdt`) – automatischer Neustart bei Systemhänger
-- **WLAN-Monitor** – automatische Reconnection bei Verbindungsverlust
+- **WLAN-Monitor** – automatische Reconnection bei Verbindungsverlust; WiFi Power Management deaktiviert (verhindert stille Verbindungsabbrüche durch Beacon-Misses)
 - **Health-Check** – systemd-Timer prüft alle 5 Minuten DNS, FTL-Status, Speicher, Temperatur
 - **First-Boot-Service** – Secrets werden beim Erststart aus `secrets.env` geladen, nie im Image gespeichert
 - **SSH gehärtet** – Key-basierte Authentifizierung, Passwort-Login deaktiviert
@@ -133,13 +133,15 @@ pihole-image/
 │   ├── 01-configure/
 │   │   ├── files/                     # Konfigurationsdateien
 │   │   │   ├── pihole.toml            # Pi-hole v6 Konfiguration
+│   │   │   ├── adlists.list           # Vorinstallierte Blocklisten
 │   │   │   ├── log2ram.conf           # Log2RAM Konfiguration
 │   │   │   ├── watchdog.conf          # Hardware-Watchdog
 │   │   │   ├── wlan-monitor.sh        # WLAN Reconnect Script
 │   │   │   ├── wlan-monitor.service   # WLAN Monitor systemd Unit
 │   │   │   ├── health-check.sh        # Health-Check Script
 │   │   │   ├── health-check.service   # Health-Check systemd Unit
-│   │   │   └── health-check.timer     # Health-Check Timer (5 Min)
+│   │   │   ├── health-check.timer     # Health-Check Timer (5 Min)
+│   │   │   └── pihole-health          # Logrotate-Konfiguration für Health- und Pi-hole-Logs
 │   │   └── 01-run.sh                  # Konfiguration deployen
 │   ├── 02-first-boot/
 │   │   ├── files/

@@ -127,6 +127,16 @@ dns=none
 EOF
 
 # ============================================================
+# WiFi Power Management deaktivieren
+# Pi Zero W geht sonst in Schlafmodus → verpasst Beacons → Verbindungsabbruch.
+# wifi.powersave = 2: disable (0=default, 2=disable, 3=enable)
+# ============================================================
+cat >"${ROOTFS_DIR}/etc/NetworkManager/conf.d/99-wifi-powersave.conf" <<'EOF'
+[connection]
+wifi.powersave = 2
+EOF
+
+# ============================================================
 # Pi-hole FTL systemd Hardening (Drop-in Override)
 # Wird aktiv sobald pihole-FTL.service beim First Boot installiert wird.
 # ============================================================

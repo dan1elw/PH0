@@ -60,12 +60,14 @@ fi
 
 # Hardware-Watchdog über systemd RuntimeWatchdogSec statt userspace watchdog-Daemon.
 # systemd füttert /dev/watchdog direkt – zuverlässiger und ohne Service-Abhängigkeiten.
-# RuntimeWatchdogSec=10: systemd muss /dev/watchdog alle 10s beschreiben,
+# RuntimeWatchdogSec=60: systemd muss /dev/watchdog alle 60s beschreiben,
 # sonst löst der Hardware-Watchdog nach dem Timeout einen Reboot aus.
+# 60s statt 10s: Log2RAM-Sync auf dem Pi Zero W kann die SD-Karte für mehrere
+# Sekunden sättigen (hohe I/O-Last), was bei 10s zu Fehlalarmen führt.
 mkdir -p "${ROOTFS_DIR}/etc/systemd/system.conf.d"
 cat >"${ROOTFS_DIR}/etc/systemd/system.conf.d/watchdog.conf" <<'EOF'
 [Manager]
-RuntimeWatchdogSec=10
+RuntimeWatchdogSec=60
 EOF
 
 # ============================================================

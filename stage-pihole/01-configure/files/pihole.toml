@@ -34,7 +34,7 @@
     domain = "fritz.box"
 
   # Query-Logging deaktiviert: pihole.log wächst auf dem Pi Zero W zu schnell
-  # (~3 MB/h) und füllt Log2RAM (50 MB) innerhalb von Stunden. FTL hält
+  # (~3 MB/h) und belastet die SD-Karte unnötig. FTL hält
   # alle Statistiken im RAM – das Web-UI zeigt weiterhin alle Abfragen.
   queryLogging = false
 

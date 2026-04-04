@@ -2,7 +2,7 @@
 # first-boot.sh – Ersteinrichtung beim ersten Boot
 #
 # Dieses Script läuft EINMALIG beim allerersten Start des Pi.
-# Es installiert Pi-hole und Log2RAM (brauchen Netzwerk + systemd),
+# Es installiert Pi-hole (braucht Netzwerk + systemd),
 # konfiguriert WiFi, SSH, und aktiviert alle Services.
 # Danach löscht es die secrets.env und deaktiviert sich selbst.
 
@@ -408,7 +408,7 @@ APTCONF
         rm -f "${PIHOLE_INSTALLER}"
 
         # Pi-hole überschreibt /etc/resolv.conf auf 127.0.0.1 (eigener DNS).
-        # Für die restlichen Phasen (Log2RAM-Download etc.) Upstream-DNS wiederherstellen.
+        # Für die restlichen Phasen Upstream-DNS wiederherstellen.
         echo "nameserver ${PI_GATEWAY}" >/etc/resolv.conf
         log_info "DNS nach Pi-hole-Installation wiederhergestellt: ${PI_GATEWAY}"
     fi
@@ -476,96 +476,9 @@ else
 fi
 
 # ============================================================
-# 6. Log2RAM installieren
+# 6. Services aktivieren
 # ============================================================
-phase_start 6 "Log2RAM installieren"
-
-# Sicherstellen dass DNS über Gateway erreichbar ist.
-# Pi-hole FTL überschreibt resolv.conf auf 127.0.0.1 – stoppen für Downloads.
-PIHOLE_FTL_WAS_RUNNING=false
-if systemctl is-active pihole-FTL &>/dev/null; then
-    log_info "Stoppe pihole-FTL für Log2RAM-Download (DNS-Override verhindern)..."
-    systemctl stop pihole-FTL 2>/dev/null || true
-    PIHOLE_FTL_WAS_RUNNING=true
-fi
-echo "nameserver ${PI_GATEWAY}" >/etc/resolv.conf
-log_info "DNS für Downloads: ${PI_GATEWAY}"
-
-if command -v log2ram &>/dev/null || [ -f /usr/local/sbin/log2ram ] || [ -f /usr/sbin/log2ram ]; then
-    log_info "Log2RAM bereits installiert – überspringe."
-else
-    LOG2RAM_TARBALL="/tmp/log2ram.tar.gz"
-    LOG2RAM_DIR="/tmp/log2ram-install"
-    DOWNLOAD_OK=false
-
-    log_info "Lade Log2RAM herunter..."
-    for attempt in $(seq 1 3); do
-        if curl -sSL --max-time 120 \
-            https://github.com/azlux/log2ram/archive/refs/heads/master.tar.gz \
-            -o "${LOG2RAM_TARBALL}"; then
-            DOWNLOAD_OK=true
-            log_info "Log2RAM heruntergeladen (Versuch ${attempt})."
-            break
-        fi
-        log_warn "Download fehlgeschlagen (Versuch ${attempt}/3) – warte 15s..."
-        sleep 15
-    done
-
-    if [ "${DOWNLOAD_OK}" = false ]; then
-        log_err "Log2RAM konnte nicht heruntergeladen werden!"
-        phase_fail 6
-    else
-        mkdir -p "${LOG2RAM_DIR}"
-        if tar -xzf "${LOG2RAM_TARBALL}" -C "${LOG2RAM_DIR}" --strip-components=1; then
-            log_info "Log2RAM entpackt."
-            chmod +x "${LOG2RAM_DIR}/install.sh"
-            if (cd "${LOG2RAM_DIR}" && bash install.sh); then
-                log_info "Log2RAM Installation erfolgreich."
-            else
-                log_err "Log2RAM install.sh fehlgeschlagen (Exit-Code: $?)!"
-                phase_fail 6
-            fi
-        else
-            log_err "Log2RAM entpacken fehlgeschlagen!"
-            phase_fail 6
-        fi
-        rm -rf "${LOG2RAM_TARBALL}" "${LOG2RAM_DIR}"
-    fi
-fi
-
-# Log2RAM Konfiguration sichern
-if [ -f /etc/log2ram.conf ]; then
-    if [ ! -f /etc/log2ram.conf.default ]; then
-        cp /etc/log2ram.conf /etc/log2ram.conf.default
-        log_info "Log2RAM Default-Konfiguration gesichert nach /etc/log2ram.conf.default"
-    else
-        log_info "Log2RAM Default-Konfiguration bereits vorhanden."
-    fi
-fi
-
-# Log2RAM Sync-Intervall auf stündlich setzen
-log_info "Setze Log2RAM Sync-Intervall auf stündlich..."
-mkdir -p /etc/systemd/system/log2ram-daily.timer.d
-cat >/etc/systemd/system/log2ram-daily.timer.d/override.conf <<'EOF'
-[Timer]
-# Leere Zuweisung: überschreibt/löscht den Default-Wert
-OnCalendar=
-# Stündlich zur vollen Stunde (statt täglich um 00:00)
-OnCalendar=*-*-* *:00:00
-EOF
-log_info "Log2RAM Timer-Override geschrieben."
-
-if [ "${PIHOLE_FTL_WAS_RUNNING}" = true ]; then
-    log_info "Starte pihole-FTL wieder..."
-    systemctl start pihole-FTL 2>/dev/null || true
-fi
-
-phase_end_or_skip 6
-
-# ============================================================
-# 7. Services aktivieren
-# ============================================================
-phase_start 7 "Services aktivieren"
+phase_start 6 "Services aktivieren"
 
 # daemon-reload zuerst: Pi-hole apt-Install hat neue Units hinzugefügt
 systemctl daemon-reload && log_info "systemd Daemon neu geladen." ||
@@ -592,12 +505,12 @@ for svc in wlan-monitor health-check.timer; do
     fi
 done
 
-phase_end 7
+phase_end 6
 
 # ============================================================
-# 8. Aufräumen
+# 7. Aufräumen
 # ============================================================
-phase_start 8 "Aufräumen"
+phase_start 7 "Aufräumen"
 
 log_info "Lösche secrets.env sicher: ${SECRETS_FILE}"
 if shred -u "${SECRETS_FILE}" 2>/dev/null; then
@@ -608,10 +521,10 @@ else
     log_warn "secrets.env konnte nicht gelöscht werden – bitte manuell entfernen!"
 fi
 
-phase_end 8
+phase_end 7
 
 # ============================================================
-# 9. First-Boot-Service deaktivieren
+# 8. First-Boot-Service deaktivieren
 # ============================================================
 log_info "Deaktiviere First-Boot-Service..."
 if systemctl disable first-boot.service 2>&1; then
@@ -636,7 +549,7 @@ fi
 log_info "================================================================"
 
 # ============================================================
-# 10. Neustart
+# 9. Neustart
 # ============================================================
 log_info "=== Ersteinrichtung abgeschlossen. Starte neu in 5 Sekunden... ==="
 sleep 5

@@ -26,21 +26,15 @@ chown pihole:pihole /etc/pihole/adlists.list
 CHEOF
 
 # ============================================================
-# Log2RAM Konfiguration (wird beim First Boot installiert)
-# ============================================================
-install -v -m 644 \
-    "${STAGE_DIR}/01-configure/files/log2ram.conf" \
-    "${ROOTFS_DIR}/etc/log2ram.conf"
-
-# journald: persistente Logs aktivieren + Größe begrenzen (passend zu Log2RAM 50MB)
-# Storage=persistent: Logs in /var/log/journal (via Log2RAM im RAM, stündlich auf SD)
+# journald: persistente Logs aktivieren + Größe begrenzen
+# Storage=persistent: Logs in /var/log/journal (überleben Reboots)
 # Ohne Storage=persistent bleibt journald volatile und Logs gehen beim Reboot verloren.
+# SystemMaxUse=100M: verhindert unkontrolliertes Wachstum auf der SD-Karte.
 mkdir -p "${ROOTFS_DIR}/etc/systemd/journald.conf.d"
-cat >"${ROOTFS_DIR}/etc/systemd/journald.conf.d/log2ram.conf" <<'EOF'
+cat >"${ROOTFS_DIR}/etc/systemd/journald.conf.d/journald.conf" <<'EOF'
 [Journal]
 Storage=persistent
-SystemMaxUse=20M
-RuntimeMaxUse=20M
+SystemMaxUse=100M
 EOF
 
 # /var/log/journal muss existieren damit journald persistent schreibt
@@ -49,10 +43,6 @@ mkdir -p "${ROOTFS_DIR}/var/log/journal"
 # ============================================================
 # Hardware-Watchdog Konfiguration
 # ============================================================
-install -v -m 644 \
-    "${STAGE_DIR}/01-configure/files/watchdog.conf" \
-    "${ROOTFS_DIR}/etc/watchdog.conf"
-
 # Watchdog Kernel-Modul beim Boot laden
 if ! grep -q "bcm2835_wdt" "${ROOTFS_DIR}/etc/modules" 2>/dev/null; then
     echo "bcm2835_wdt" >>"${ROOTFS_DIR}/etc/modules"
@@ -62,8 +52,8 @@ fi
 # systemd füttert /dev/watchdog direkt – zuverlässiger und ohne Service-Abhängigkeiten.
 # RuntimeWatchdogSec=60: systemd muss /dev/watchdog alle 60s beschreiben,
 # sonst löst der Hardware-Watchdog nach dem Timeout einen Reboot aus.
-# 60s statt 10s: Log2RAM-Sync auf dem Pi Zero W kann die SD-Karte für mehrere
-# Sekunden sättigen (hohe I/O-Last), was bei 10s zu Fehlalarmen führt.
+# 60s: Pi Zero W hat langsame SD-Karte; grosszügiges Timeout verhindert
+# Fehlalarme bei hoher I/O-Last (apt, gravity update etc.).
 mkdir -p "${ROOTFS_DIR}/etc/systemd/system.conf.d"
 cat >"${ROOTFS_DIR}/etc/systemd/system.conf.d/watchdog.conf" <<'EOF'
 [Manager]

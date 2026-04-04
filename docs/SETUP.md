@@ -84,7 +84,6 @@ und kopiert `secrets.env` auf die Boot-Partition.
    - Konfiguriert WiFi und statische IP
    - Setzt Benutzer-Passwort und SSH-Key
    - Installiert Pi-hole v6 (braucht Internet)
-   - Installiert Log2RAM
    - Aktiviert Watchdog, WLAN-Monitor, Health-Check
    - Löscht `secrets.env` und startet neu
 

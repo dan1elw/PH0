@@ -33,7 +33,6 @@ ssh daniel@192.168.178.69 'sudo cat /var/log/first-boot.log'
 - [ ] DNS resolution works: `dig @192.168.178.69 google.com`
 - [ ] A known ad domain is blocked: `dig @192.168.178.69 doubleclick.net`
 - [ ] `systemctl status pihole-FTL` → active (running)
-- [ ] `systemctl status log2ram` → active (running)
 - [ ] `systemctl status wlan-monitor` → active (running)
 - [ ] `systemctl status health-check.timer` → active (waiting)
 - [ ] nftables firewall active: `sudo nft list ruleset`

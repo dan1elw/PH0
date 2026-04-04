@@ -28,7 +28,6 @@ automatisiertem Watchdog-Stack und CI/CD-Pipeline via GitHub Actions.
 ## Funktionsumfang
 
 - **Pi-hole v6** mit REST API, vorkonfiguriert für unattended Installation
-- **Log2RAM** – Logs ins RAM, stündliche Synchronisation auf SD-Karte (50 MB)
 - **tmpfs** für `/tmp` und `/var/tmp` – keine temporären Dateien auf der SD-Karte
 - **Hardware-Watchdog** (`bcm2835_wdt`) – automatischer Neustart bei Systemhänger
 - **WLAN-Monitor** – automatische Reconnection bei Verbindungsverlust; WiFi Power Management deaktiviert (verhindert stille Verbindungsabbrüche durch Beacon-Misses)
@@ -77,7 +76,7 @@ nano secrets.env  # Werte ausfüllen
 ./scripts/flash.sh /dev/sdX
 
 # 5. Erststart – Pi mit Netzwerk verbinden und booten
-# Der First-Boot-Service installiert Pi-hole + Log2RAM und konfiguriert alles. Das dauert ca. 5-10 Minuten. Danach ist Pi-hole erreichbar unter der konfigurierten IP Addresse: http://192.168.178.69/admin (default)
+# Der First-Boot-Service installiert Pi-hole und konfiguriert alles. Das dauert ca. 5-10 Minuten. Danach ist Pi-hole erreichbar unter der konfigurierten IP Addresse: http://192.168.178.69/admin (default)
 ./scripts/validate.sh --wait
 ```
 
@@ -94,14 +93,14 @@ nano secrets.env  # Werte ausfüllen
 │         Raspberry Pi Zero W (192.168.178.69)         │
 │         Raspberry Pi OS Lite (Bookworm, armhf)       │
 │                                                      │
-│  ┌────────────┐  ┌────────────┐  ┌────────────────┐  │
-│  │  Pi-hole   │  │  Log2RAM   │  │  Watchdog      │  │
-│  │  v6 (FTL)  │  │  /var/log  │  │  Stack         │  │
-│  │            │  │  50MB RAM  │  │                │  │
-│  │  DNS :53   │  │  1h Sync   │  │  HW-Watchdog   │  │
-│  │  HTTP :80  │  │            │  │  WLAN-Monitor  │  │
-│  │  REST API  │  │            │  │  Health-Check  │  │
-│  └────────────┘  └────────────┘  └────────────────┘  │
+│  ┌────────────┐  ┌────────────────────────────────┐  │
+│  │  Pi-hole   │  │  Watchdog Stack                │  │
+│  │  v6 (FTL)  │  │                                │  │
+│  │            │  │  HW-Watchdog                   │  │
+│  │  DNS :53   │  │  WLAN-Monitor                  │  │
+│  │  HTTP :80  │  │  Health-Check                  │  │
+│  │  REST API  │  │                                │  │
+│  └────────────┘  └────────────────────────────────┘  │
 │                                                      │
 │  ┌────────────────────────────────────────────────┐  │
 │  │  First-Boot → secrets.env lesen → sich selbst  │  │
@@ -129,12 +128,11 @@ pihole-image/
 │   ├── prerun.sh                      # Stage-Setup
 │   ├── 00-install-packages/
 │   │   ├── 00-packages                # APT-Pakete
-│   │   └── 01-run.sh                  # Pi-hole + Log2RAM Installation
+│   │   └── 01-run.sh                  # Paketliste
 │   ├── 01-configure/
 │   │   ├── files/                     # Konfigurationsdateien
 │   │   │   ├── pihole.toml            # Pi-hole v6 Konfiguration
 │   │   │   ├── adlists.list           # Vorinstallierte Blocklisten
-│   │   │   ├── log2ram.conf           # Log2RAM Konfiguration
 │   │   │   ├── watchdog.conf          # Hardware-Watchdog
 │   │   │   ├── wlan-monitor.sh        # WLAN Reconnect Script
 │   │   │   ├── wlan-monitor.service   # WLAN Monitor systemd Unit
@@ -242,11 +240,10 @@ Beim ersten Boot passiert automatisch:
 6. **Pi-hole v6 wird installiert** (benötigt Internet-Verbindung)
 7. Pi-hole Admin-Passwort wird gesetzt, Gravity (Blocklisten) wird geladen
 8. **TLS-Zertifikat wird generiert** (self-signed ECDSA, gültig 10 Jahre, SAN: IP + Hostname + `pi.hole`)
-9. **Log2RAM wird installiert**
-10. Alle Services werden aktiviert (WLAN-Monitor, Health-Check)
-11. `secrets.env` wird sicher gelöscht
-12. Der First-Boot-Service deaktiviert sich selbst
-13. Der Pi startet neu
+9. Alle Services werden aktiviert (WLAN-Monitor, Health-Check)
+10. `secrets.env` wird sicher gelöscht
+11. Der First-Boot-Service deaktiviert sich selbst
+12. Der Pi startet neu
 
 Der gesamte Vorgang dauert ca. **5-10 Minuten** (Pi Zero W ist langsam).
 Nach dem Neustart ist Pi-hole erreichbar unter:
@@ -274,7 +271,6 @@ ssh pi@192.168.178.69
 # Auf dem Pi:
 pihole status
 systemctl status pihole-FTL
-systemctl status log2ram
 systemctl status wlan-monitor
 systemctl status health-check.timer
 dig @127.0.0.1 google.com
@@ -319,13 +315,6 @@ https://example.com/blocklist.txt
 ```bash
 pihole allowlist --comment "Meine Liste" https://example.com/list.txt
 pihole -g
-```
-
-### Log2RAM Status prüfen
-
-```bash
-systemctl status log2ram
-df -h /var/log
 ```
 
 ### SD-Karten-Gesundheit prüfen

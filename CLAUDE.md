@@ -15,8 +15,8 @@ config                         # pi-gen main configuration
 secrets.env.example            # Template for credentials (never commit secrets.env)
 stage-pihole/                  # Custom pi-gen stage (the core of the project)
   00-install-packages/         # APT packages + user/directory prep
-  01-configure/                # Config files: pihole.toml, log2ram, watchdog, health-check, wlan-monitor
-  02-first-boot/               # First-boot service (Pi-hole + Log2RAM install at runtime)
+  01-configure/                # Config files: pihole.toml, watchdog, health-check, wlan-monitor
+  02-first-boot/               # First-boot service (Pi-hole install at runtime)
   03-hardening/                # SSH, nftables firewall, tmpfs, kernel tuning
 scripts/                       # Host-side tooling: build.sh, flash.sh, validate.sh
 docs/                          # ARCHITECTURE.md, SETUP.md, TROUBLESHOOTING.md
@@ -49,7 +49,7 @@ shfmt -d -i 4 -ci scripts/*.sh stage-pihole/**/*.sh
 
 - **pi-gen bookworm branch**, NOT master (master = Trixie since Aug 2025)
 - **`cp -a` not symlinks** for custom stages — Docker build cannot follow symlinks outside build context
-- **First-boot pattern**: Pi-hole and Log2RAM install at runtime (not in chroot) because chroot lacks systemd and network
+- **First-boot pattern**: Pi-hole installs at runtime (not in chroot) because chroot lacks systemd and network
 - **Symlinks for service activation** in chroot — `systemctl enable` does not work in pi-gen chroot
 - **All `secrets.env` values MUST be double-quoted** — unquoted values with spaces cause silent first-boot failures
 - NetworkManager `dns=none` is set so Pi-hole owns DNS, but first-boot temporarily writes resolv.conf for downloads

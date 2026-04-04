@@ -104,21 +104,9 @@ else
 fi
 
 # ============================================================
-# 6. Log2RAM Status
-# ============================================================
-if systemctl is-active --quiet log2ram; then
-    log2ram_status="OK"
-    log2ram_usage=$(df -h /var/log | awk 'NR==2 {print $5}')
-    log2ram_status="${log2ram_status} (${log2ram_usage} belegt)"
-else
-    log2ram_status="FAIL"
-    log_err "Log2RAM Service ist nicht aktiv!"
-fi
-
-# ============================================================
 # Ergebnis loggen
 # ============================================================
-summary="DNS=${dns_status} FTL=${ftl_status} RAM=${mem_status} TEMP=${temp_status} SD=${sd_status} LOG2RAM=${log2ram_status}"
+summary="DNS=${dns_status} FTL=${ftl_status} RAM=${mem_status} TEMP=${temp_status} SD=${sd_status}"
 
 if [ "${ERRORS}" -eq 0 ]; then
     log_info "Health-Check OK: ${summary}"

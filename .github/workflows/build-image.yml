@@ -116,7 +116,6 @@ jobs:
             - 5 vorkonfigurierte Blocklisten: StevenBlack, OISD Small, HaGeZi Multi, EasyList Germany, StevenBlack Fakenews+Gambling+Porn
 
             **SD-Karten-Schutz**
-            - Log2RAM (50 MB) – `/var/log` im RAM, stündliche Synchronisation; wird beim First Boot installiert
             - tmpfs für `/tmp` (30 MB) und `/var/tmp` (10 MB)
             - Swap deaktiviert
             - FTL Query-Datenbank deaktiviert (`maxDBDays = 0`)
@@ -135,7 +134,7 @@ jobs:
 
             **First-Boot-Service**
             - Liest `secrets.env` von der Boot-Partition, setzt Hostname, User, WiFi, SSH-Key
-            - Installiert Pi-hole, Log2RAM, lädt Gravity (Blocklisten)
+            - Installiert Pi-hole, lädt Gravity (Blocklisten)
             - Löscht `secrets.env` sicher nach Abschluss (`shred`)
 
             ### Verwendung

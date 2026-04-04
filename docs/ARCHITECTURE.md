@@ -23,15 +23,12 @@ Konfigurationsentscheidungen:
 - **Conditional Forwarding:** PTR-Anfragen für `192.168.178.0/24` werden an Fritz!Box (`192.168.178.1`) weitergeleitet, damit Hostnamen im LAN aufgelöst werden
 - **DHCP:** Deaktiviert – wird vom Router (Fritz!Box) gehandhabt
 
-### Log2RAM
+### Logging
 
-Log2RAM mountet `/var/log` als tmpfs ins RAM. Konfiguration:
-- **Größe:** 50 MB (ca. 10% des Pi Zero W RAM)
-- **Sync-Intervall:** Stündlich (via systemd Timer Override)
-- **journald:** `Storage=persistent` – Logs werden in `/var/log/journal` geschrieben (via Log2RAM im RAM, stündlich auf SD-Karte synchronisiert). Ohne diese Einstellung wäre journald volatile und Logs würden bei jedem Reboot verloren gehen.
-- **journald:** SystemMaxUse auf 20 MB begrenzt
-- **Logrotate:** `pihole-health.log` (500 KB, 2 Kopien) und `pihole/pihole.log` (1 MB, 1 Kopie) werden per logrotate rotiert, um einen Log2RAM-Überlauf zu verhindern
-- **zram:** Deaktiviert (spart CPU auf dem ARMv6)
+Logs werden direkt auf die SD-Karte geschrieben. Konfiguration:
+- **journald:** `Storage=persistent` – Logs in `/var/log/journal`, überleben Reboots
+- **journald:** SystemMaxUse auf 100 MB begrenzt (verhindert unkontrolliertes Wachstum)
+- **Logrotate:** `pihole-health.log` (500 KB, 2 Kopien) und `pihole/pihole.log` (1 MB, 1 Kopie) werden per logrotate rotiert
 
 ### Watchdog-Stack (3 Ebenen)
 
@@ -54,7 +51,6 @@ systemd Timer führt alle 5 Minuten `/usr/local/bin/health-check.sh` aus. Prüft
 - RAM-Verfügbarkeit (Warnung <20%, Kritisch <10%)
 - CPU-Temperatur (Warnung >65°C, Kritisch >75°C)
 - SD-Karten I/O-Fehler in dmesg
-- Log2RAM Service-Status
 
 Ergebnisse werden in journald und `/var/log/pihole-health.log` geschrieben.
 Ein Webhook-Aufruf bei Fehler ist vorbereitet (auskommentiert).
@@ -71,11 +67,10 @@ Ablauf:
 5. SSH Public Key deployen
 6. Pi-hole v6 installieren (unattended), Admin-Passwort setzen, Gravity laden
 7. Self-signed ECDSA-TLS-Zertifikat für HTTPS generieren (`pi.hole`, Hostname, IP als SAN)
-8. Log2RAM installieren, Sync-Intervall auf stündlich setzen
-9. Services aktivieren (wlan-monitor, health-check.timer)
-10. `secrets.env` sicher löschen (`shred`)
-11. Service deaktiviert sich selbst
-12. Neustart
+8. Services aktivieren (wlan-monitor, health-check.timer)
+9. `secrets.env` sicher löschen (`shred`)
+10. Service deaktiviert sich selbst
+11. Neustart
 
 ### Härtung
 
@@ -113,8 +108,8 @@ Internet
 
 | Komponente | Risiko | Mitigation |
 |---|---|---|
-| SD-Karte | Hoch | Log2RAM, tmpfs, Swap-off, Kernel-Tuning, reproduzierbares Image |
+| SD-Karte | Hoch | tmpfs für /tmp, Swap-off, Kernel-Tuning, reproduzierbares Image |
 | WiFi | Mittel | WLAN-Monitor mit Auto-Reconnect + Reboot-Eskalation |
 | Pi-hole FTL | Niedrig | systemd Restart + WatchdogSec, Health-Check |
-| Stromausfall | Mittel | Hardware-Watchdog, Log2RAM Sync, kein Swap |
+| Stromausfall | Mittel | Hardware-Watchdog, kein Swap |
 | DNS für LAN | Hoch | Router als sekundären DNS konfigurieren (manuell) |

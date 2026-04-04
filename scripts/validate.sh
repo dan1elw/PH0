@@ -297,7 +297,7 @@ else
     echo ""
     echo "--- Services ---"
 
-    for svc in pihole-FTL log2ram wlan-monitor nftables; do
+    for svc in pihole-FTL wlan-monitor nftables; do
         result=$(run_remote "systemctl is-active ${svc} 2>/dev/null")
         if echo "${result}" | grep -q "^active"; then
             test_pass "${svc} Service aktiv"
@@ -324,14 +324,6 @@ else
 
     echo ""
     echo "--- System ---"
-
-    # Log2RAM Mount
-    result=$(run_remote "df /var/log 2>/dev/null" || echo "")
-    if echo "${result}" | grep -qE "tmpfs|log2ram"; then
-        test_pass "Log2RAM /var/log gemountet"
-    else
-        test_fail "Log2RAM /var/log gemountet"
-    fi
 
     # tmpfs /tmp
     result=$(run_remote "df /tmp 2>/dev/null" || echo "")

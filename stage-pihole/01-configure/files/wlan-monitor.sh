@@ -57,8 +57,7 @@ while true; do
 
         if [ ${failure_count} -ge ${MAX_FAILURES} ]; then
             log_err "Maximale Fehlversuche erreicht. Starte System neu..."
-            # Crash-Log und sync vor reboot: Log2RAM hält Logs im RAM –
-            # sync stellt sicher dass alles auf der SD-Karte landet.
+            # sync vor reboot: sicherstellen dass Logs auf der SD-Karte landen.
             echo "$(date -Iseconds) WLAN-Monitor: Neustart nach ${MAX_FAILURES} Fehlversuchen" \
                 >>/var/log/pihole-crashes.log
             sync

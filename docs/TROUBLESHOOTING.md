@@ -5,8 +5,7 @@
 ### Systemd Journal – Grundbefehle
 
 journald ist mit `Storage=persistent` konfiguriert: Logs überleben Neustarts und werden
-stündlich via Log2RAM auf die SD-Karte synchronisiert. Damit lassen sich auch vergangene
-Boots gezielt analysieren.
+direkt auf die SD-Karte geschrieben. Damit lassen sich auch vergangene Boots gezielt analysieren.
 
 ```bash
 # Gesamtes Journal des aktuellen Boots
@@ -117,7 +116,7 @@ vcgencmd get_throttled  # 0x0 = alles OK, sonst Drosselung/Unterspannung
 systemctl --failed
 
 # Status aller Pi-hole-relevanten Services
-systemctl status pihole-FTL log2ram wlan-monitor health-check.timer first-boot
+systemctl status pihole-FTL wlan-monitor health-check.timer first-boot
 ```
 
 ---
@@ -254,16 +253,14 @@ pihole-FTL --check
 systemctl restart pihole-FTL
 ```
 
-### Log2RAM ist nicht aktiv
+### /var/log wächst zu groß
 
 ```bash
-systemctl status log2ram
 df -h /var/log
 
-# Falls /var/log zu groß ist:
-journalctl --vacuum-size=16M
-sudo find /var/log/ -name '*.gz' -delete
-sudo reboot
+# Journal-Größe prüfen und reduzieren:
+journalctl --disk-usage
+journalctl --vacuum-size=50M
 ```
 
 ### Watchdog löst unerwartete Neustarts aus

@@ -116,7 +116,7 @@ nano secrets.env  # Werte ausfüllen
 ## Repository-Struktur
 
 ```
-pihole-image/
+PH0/
 ├── README.md                          # Diese Datei
 ├── LICENSE                            # MIT License
 ├── config                             # pi-gen Hauptkonfiguration

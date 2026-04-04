@@ -91,14 +91,18 @@ rm -f "${ROOTFS_DIR}/var/swap" 2>/dev/null || true
 # Kernel-Parameter für SD-Karten-Schutz
 # ============================================================
 cat >"${ROOTFS_DIR}/etc/sysctl.d/99-sdcard-protect.conf" <<'EOF'
-# Dirty Writeback alle 60s (statt 5s): reduziert SD-Schreibfrequenz drastisch
+# Dirty Writeback alle 60s (statt 5s): reduziert SD-Schreibfrequenz
 vm.dirty_writeback_centisecs = 6000
-# Bis zu 60% RAM dirty halten bevor sync blockiert
-vm.dirty_ratio = 60
-# Hintergrund-Sync erst bei 40% – kein aggressives Flushen
-vm.dirty_background_ratio = 40
+# Dirty-Ratio auf Linux-Defaults (20/10): verhindert übermäßige RAM-Belegung
+# durch dirty pages (frühere höhere Werte waren für Log2RAM optimiert)
+vm.dirty_ratio = 20
+vm.dirty_background_ratio = 10
 # Swappiness=1: RAM fast nie in Swap auslagern (kein Swap auf SD)
 vm.swappiness = 1
+# Bei OOM-Situation: Kernel-Panic statt OOM-Killer (sauberer Neustart)
+vm.panic_on_oom = 1
+# Nach Kernel-Panic automatisch nach 10s neu starten
+kernel.panic = 10
 EOF
 
 # ============================================================

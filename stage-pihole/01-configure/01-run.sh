@@ -43,10 +43,6 @@ mkdir -p "${ROOTFS_DIR}/var/log/journal"
 # ============================================================
 # Hardware-Watchdog Konfiguration
 # ============================================================
-install -v -m 644 \
-    "${STAGE_DIR}/01-configure/files/watchdog.conf" \
-    "${ROOTFS_DIR}/etc/watchdog.conf"
-
 # Watchdog Kernel-Modul beim Boot laden
 if ! grep -q "bcm2835_wdt" "${ROOTFS_DIR}/etc/modules" 2>/dev/null; then
     echo "bcm2835_wdt" >>"${ROOTFS_DIR}/etc/modules"

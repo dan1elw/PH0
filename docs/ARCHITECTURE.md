@@ -78,7 +78,7 @@ Ablauf:
 - **Firewall:** nftables mit Default-Drop Policy; erlaubt: 22/tcp (SSH), 53/tcp+udp (DNS), 80/tcp (HTTP), 443/tcp (HTTPS), 5353/udp (mDNS), ICMP/ICMPv6
 - **tmpfs:** `/tmp` (30 MB) und `/var/tmp` (10 MB) im RAM
 - **Swap:** Deaktiviert (kein dphys-swapfile)
-- **Kernel-Tuning:** Dirty Writeback auf 60s, Swappiness=1
+- **Kernel-Tuning:** Dirty Writeback auf 60s, Swappiness=1, `vm.panic_on_oom=1` + `kernel.panic=10` (automatischer Neustart bei OOM)
 - **Services deaktiviert:** Bluetooth, Triggerhappy
 - **Avahi aktiv:** mDNS-Advertisement damit Router (Fritz!Box) den Hostnamen `pihole.local` auflösen kann
 - **HDMI deaktiviert:** Strom sparen im Headless-Betrieb

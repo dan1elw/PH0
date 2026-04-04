@@ -1,0 +1,20 @@
+# logrotate config for pihole-health.log and pihole query log
+# Rotates when file exceeds threshold, keeps 2 compressed copies.
+# copytruncate: scripts append directly (no daemon to signal).
+/var/log/pihole-health.log {
+    size 500k
+    rotate 2
+    compress
+    missingok
+    notifempty
+    copytruncate
+}
+
+/var/log/pihole/pihole.log {
+    size 1M
+    rotate 1
+    compress
+    missingok
+    notifempty
+    copytruncate
+}

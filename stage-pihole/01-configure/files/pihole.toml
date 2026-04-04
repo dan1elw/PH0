@@ -33,6 +33,11 @@
     target = "192.168.178.1"
     domain = "fritz.box"
 
+  # Query-Logging deaktiviert: pihole.log wächst auf dem Pi Zero W zu schnell
+  # (~3 MB/h) und füllt Log2RAM (50 MB) innerhalb von Stunden. FTL hält
+  # alle Statistiken im RAM – das Web-UI zeigt weiterhin alle Abfragen.
+  queryLogging = false
+
 [webserver]
   # 80o = HTTP optional (bleibt für Kompatibilität)
   # 443s = HTTPS mit TLS (Zertifikat wird beim First Boot generiert)
@@ -60,12 +65,6 @@
 
   # Temperatur in Celsius
   tempunit = "C"
-
-[files]
-  # Query-Log Konfiguration
-  [files.log]
-    # Log-Datei (wird durch Log2RAM ins RAM geschrieben)
-    file = "/var/log/pihole/pihole.log"
 
 [database]
   # Query-Datenbank deaktiviert (maxDBDays=0): verhindert SQLite-Schreibzugriffe

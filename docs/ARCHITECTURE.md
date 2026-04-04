@@ -28,7 +28,9 @@ Konfigurationsentscheidungen:
 Log2RAM mountet `/var/log` als tmpfs ins RAM. Konfiguration:
 - **Größe:** 50 MB (ca. 10% des Pi Zero W RAM)
 - **Sync-Intervall:** Stündlich (via systemd Timer Override)
+- **journald:** `Storage=persistent` – Logs werden in `/var/log/journal` geschrieben (via Log2RAM im RAM, stündlich auf SD-Karte synchronisiert). Ohne diese Einstellung wäre journald volatile und Logs würden bei jedem Reboot verloren gehen.
 - **journald:** SystemMaxUse auf 20 MB begrenzt
+- **Logrotate:** `pihole-health.log` (500 KB, 2 Kopien) und `pihole/pihole.log` (1 MB, 1 Kopie) werden per logrotate rotiert, um einen Log2RAM-Überlauf zu verhindern
 - **zram:** Deaktiviert (spart CPU auf dem ARMv6)
 
 ### Watchdog-Stack (3 Ebenen)
@@ -37,6 +39,12 @@ Log2RAM mountet `/var/log` als tmpfs ins RAM. Konfiguration:
 2. **systemd WatchdogSec** für `pihole-FTL.service`: FTL meldet sich alle 60s bei systemd
 3. **WLAN-Monitor** (`wlan-monitor.service`): Prüft alle 30s die Gateway-Erreichbarkeit,
    startet `wlan0` bei Verbindungsverlust neu, Reboot nach 5 Fehlversuchen
+
+**WiFi Power Management deaktiviert:** Der brcmfmac-Treiber des Pi Zero W aktiviert standardmäßig
+WiFi Power Saving (PSM). Dabei schläft die Funkeinheit zwischen Beacon-Intervallen – unter Last
+oder bei kurzen Beacons können Pakete verloren gehen, was sich als stille Verbindungsabbrüche
+äußert. NetworkManager wird daher über `/etc/NetworkManager/conf.d/99-wifi-powersave.conf` mit
+`wifi.powersave = 2` (disable) konfiguriert, bevor der WLAN-Monitor zum Einsatz kommt.
 
 ### Health-Check
 

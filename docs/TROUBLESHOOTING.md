@@ -4,6 +4,10 @@
 
 ### Systemd Journal – Grundbefehle
 
+journald ist mit `Storage=persistent` konfiguriert: Logs überleben Neustarts und werden
+stündlich via Log2RAM auf die SD-Karte synchronisiert. Damit lassen sich auch vergangene
+Boots gezielt analysieren.
+
 ```bash
 # Gesamtes Journal des aktuellen Boots
 journalctl -b
@@ -309,6 +313,11 @@ Dies ist oft ein Zeichen für SD-Karten-Probleme. Neues Image flashen empfohlen.
 
 ### WLAN-Verbindung instabil
 
+Der brcmfmac-Treiber des Pi Zero W kann im Standard-Power-Saving-Modus (PSM) Beacons verpassen,
+was sich als stille, schwer reproduzierbare Verbindungsabbrüche äußert. WiFi Power Management
+ist daher im Image über `/etc/NetworkManager/conf.d/99-wifi-powersave.conf` deaktiviert
+(`wifi.powersave = 2`).
+
 ```bash
 # WLAN-Monitor Logs prüfen
 journalctl -u wlan-monitor --no-pager -n 50
@@ -319,6 +328,20 @@ iwconfig wlan0
 # NetworkManager Status
 nmcli device status
 nmcli connection show
+
+# Power-Saving-Status prüfen (disabled = korrekt)
+iwconfig wlan0 | grep "Power Management"
+
+# Aktive NM-Konfiguration prüfen
+cat /etc/NetworkManager/conf.d/99-wifi-powersave.conf
+```
+
+Falls das Problem weiterhin besteht (z.B. nach manueller NM-Änderung):
+```bash
+# Power Management manuell deaktivieren (temporär)
+sudo iwconfig wlan0 power off
+# Dauerhaft: Datei prüfen und ggf. NM neu starten
+sudo systemctl restart NetworkManager
 ```
 
 ### Statische IP stimmt nicht
